@@ -12,14 +12,6 @@
             <span class="text-sm text-surface-300 font-medium">Live Analysis</span>
             <span class="text-[10px] text-surface-500 hidden sm:inline">webcam · on-device browser capture</span>
         </div>
-        <div class="flex items-center gap-1.5 shrink-0">
-            <span class="text-[10px] px-2 py-1 rounded-md border border-surface-700/60 text-surface-500 hidden md:inline">
-                Detection: {{ detection_status }}
-            </span>
-            <span class="text-[10px] px-2 py-1 rounded-md border border-surface-700/60 text-surface-500 hidden md:inline">
-                Deepfake: {{ deepfake_status }}
-            </span>
-        </div>
     </div>
 
     <!-- Main -->
@@ -100,8 +92,6 @@
 </div>
 
 <script type="module">
-import { ObjectDetector, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js";
-
 // ---- constants ----
 var CAM_W = 640, CAM_H = 480;
 var mode = 'detect';            // 'detect' | 'deepfake'
@@ -113,10 +103,14 @@ let runningMode = "VIDEO";
 let lastVideoTime = -1;
 let rafId = null;
 
-// Initialize MediaPipe
+// Initialize MediaPipe dynamically so it doesn't block script execution if CDN is slow
 async function initMediaPipe() {
-    setStat('bg-amber-400', 'loading model...');
+    window.setStat('bg-amber-400', 'loading model...');
     try {
+        const visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js");
+        const ObjectDetector = visionModule.ObjectDetector;
+        const FilesetResolver = visionModule.FilesetResolver;
+
         const vision = await FilesetResolver.forVisionTasks(
             "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
         );
@@ -128,13 +122,13 @@ async function initMediaPipe() {
             scoreThreshold: 0.35,
             runningMode: runningMode
         });
-        if (stream) setStat('bg-emerald-500', 'live');
+        if (stream) window.setStat('bg-emerald-500', 'live');
+        else window.setStat('bg-surface-600', 'idle (model ready)');
     } catch (e) {
-        setStat('bg-red-500', 'model error');
-        console.error(e);
+        window.setStat('bg-red-500', 'model error');
+        console.error("MediaPipe load error:", e);
     }
 }
-initMediaPipe();
 
 window.setMode = function(btn) {
     if (!stream) return;
@@ -406,6 +400,9 @@ window.showToast = function(msg, type='info') {
     document.body.appendChild(el);
     setTimeout(() => { el.style.opacity = '0'; setTimeout(()=>el.remove(), 300); }, 3000);
 }
+
+// Initialize on load
+initMediaPipe();
 </script>
 
 <style>
