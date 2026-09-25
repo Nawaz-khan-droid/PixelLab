@@ -18,7 +18,7 @@
     <div class="flex-1 flex flex-col md:flex-row min-h-0">
         <!-- Viewfinder -->
         <div class="flex-1 flex flex-col items-center justify-center p-3 md:p-4 bg-surface-950 min-h-0 relative">
-            <div id="camera-wrap" class="relative w-full max-w-2xl">
+            <div id="camera-wrap" class="relative w-full max-w-2xl" style="display: none;">
                 <video id="cam" autoplay playsinline muted
                        class="w-full h-auto rounded-lg border border-surface-700/50 bg-black object-contain"
                        style="aspect-ratio: 4/3;"></video>
@@ -251,7 +251,7 @@ function predictWebcam() {
         renderDetections(detections.detections);
         
         document.getElementById('stat-inf').textContent = 'infer ' + infer_ms.toFixed(1) + 'ms';
-        setStat('bg-emerald-500', 'live · ' + detections.detections.length + ' obj');
+        window.setStat('bg-emerald-500', 'live · ' + detections.detections.length + ' obj');
         
         // Calculate FPS
         var n = lastFrames.push(Date.now());
@@ -284,18 +284,19 @@ window.startCam = function() {
         document.getElementById('btn-start').classList.add('hidden');
         document.getElementById('btn-stop').classList.remove('hidden');
         document.getElementById('cam-off').style.display = 'none';
+        document.getElementById('camera-wrap').style.display = 'block';
         
         if (objectDetector) {
-            setStat('bg-emerald-500', 'live');
+            window.setStat('bg-emerald-500', 'live');
             if (mode === 'detect') {
                 lastVideoTime = -1;
                 predictWebcam();
             }
         } else {
-            setStat('bg-amber-400', 'waiting for model...');
+            window.setStat('bg-amber-400', 'waiting for model...');
         }
     }).catch(function(e) {
-        setStat('bg-red-500', 'camera error');
+        window.setStat('bg-red-500', 'camera error');
         document.getElementById('cam-off-msg').textContent = 'Camera denied or unavailable: ' + e.name;
         document.getElementById('cam-off').style.display = 'flex';
     });
@@ -308,11 +309,12 @@ window.stopCam = function() {
     document.getElementById('btn-start').classList.remove('hidden');
     document.getElementById('btn-stop').classList.add('hidden');
     document.getElementById('cam-off').style.display = 'flex';
+    document.getElementById('camera-wrap').style.display = 'none';
     document.getElementById('cam-off-msg').textContent = 'Camera is off';
     document.getElementById('df-card').classList.add('hidden');
     document.getElementById('results').innerHTML =
         '<p class="text-surface-600 text-xs">Start the camera to begin analysis.</p>';
-    setStat('bg-surface-600', 'idle');
+    window.setStat('bg-surface-600', 'idle');
     document.getElementById('stat-inf').textContent = '';
     document.getElementById('stat-fps').textContent = '';
     
@@ -340,7 +342,7 @@ window.scanDeepfakeFrame = function() {
         formData.append('models', 'deepfake');
         
         inFlight = true;
-        setStat('bg-amber-400', 'analyzing...');
+        window.setStat('bg-amber-400', 'analyzing...');
         
         fetch('/api/sightengine/scan', {
             method: 'POST',
@@ -348,7 +350,7 @@ window.scanDeepfakeFrame = function() {
         }).then(r => r.json()).then(data => {
             inFlight = false;
             if (btn) { btn.textContent = 'Scan Frame'; btn.disabled = false; }
-            setStat('bg-emerald-500', 'live');
+            window.setStat('bg-emerald-500', 'live');
             
             if (data.error) {
                 showToast(data.message, 'error');
@@ -359,7 +361,7 @@ window.scanDeepfakeFrame = function() {
         }).catch(e => {
             inFlight = false;
             if (btn) { btn.textContent = 'Scan Frame'; btn.disabled = false; }
-            setStat('bg-red-500', 'network error');
+            window.setStat('bg-red-500', 'network error');
             showToast('Network error', 'error');
         });
     }, 'image/jpeg', 0.8);
