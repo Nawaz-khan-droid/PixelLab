@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}PixelLab - Lab{% endblock %}
+
+{% block content %}
+<!-- Mobile overlay -->
+<div class="lab-overlay" id="lab-overlay" onclick="closeLabPanels()"></div>
+
+<div class="flex h-[calc(100vh-56px)]">
+    <!-- Mobile toggle buttons -->
+    <div class="md:hidden fixed bottom-4 left-4 z-50 flex gap-2">
+        <button onclick="toggleLabSidebar()" class="bg-surface-50 dark:bg-surface-800 border border-surface-300 dark:border-surface-600/50 text-surface-800 dark:text-surface-300 px-3 py-2 rounded-lg shadow-lg text-xs flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            Ops
+        </button>
+        <button onclick="toggleLabInfo()" class="bg-surface-50 dark:bg-surface-800 border border-surface-300 dark:border-surface-600/50 text-surface-800 dark:text-surface-300 px-3 py-2 rounded-lg shadow-lg text-xs flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Info
+        </button>
+    </div>
+
+    <!-- Left: Operations -->
+    <aside class="w-64 bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-700/50 flex flex-col shrink-0 lab-sidebar" id="lab-sidebar">
+        <div class="p-3 border-b border-surface-200 dark:border-surface-700/50 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-300">Operations</h3>
+            <div class="flex items-center gap-2">
+                <button class="text-[10px] bg-surface-50 dark:bg-surface-800 hover:bg-surface-200 dark:bg-surface-700 text-surface-600 dark:text-surface-400 border border-surface-300 dark:border-surface-600/30 px-2 py-0.5 rounded-lg transition-all"
+                        hx-post="/api/undo" hx-target="#editor-content" hx-swap="innerHTML">
+                    Undo
+                </button>
+                <button class="text-[10px] bg-surface-50 dark:bg-surface-800 hover:bg-red-600/20 text-red-400 border border-red-600/30 px-2 py-0.5 rounded-lg transition-all"
+                        hx-post="/api/reset" hx-target="#editor-content" hx-swap="innerHTML">
+                    Reset
+                </button>
+                <a href="/editor" class="text-[10px] text-brand-400 hover:text-brand-300 transition-colors">Editor</a>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto sidebar-scroll p-2 space-y-1">
+            {% for cat_key, cat_theory in theory.items() %}
+            <div class="op-group">
+                <button class="w-full text-left px-3 py-2 text-xs font-medium text-surface-800 dark:text-surface-300 bg-surface-50 dark:bg-surface-800/50 hover:bg-surface-50 dark:bg-surface-800 rounded-lg transition-all flex items-center justify-between"
+                        onclick="toggleLabGroup(this)">
+                    <span>{{ cat_theory.title }}</span>
+                    <svg class="w-3 h-3 text-surface-500 transition-transform arrow-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+                <div class="group-content hidden pl-1 mt-1 space-y-0.5">
+                    {% for op_key, op_meta in operations.items() %}
+                    {% if op_meta.category == cat_key %}
+                    <div class="op-item">
+                        {% if op_meta.controls is defined and op_meta.controls %}
+                        <button class="w-full text-left px-3 py-1.5 text-xs text-surface-600 dark:text-surface-400 hover:text-white hover:bg-surface-50 dark:bg-surface-800 rounded-lg transition-all"
+                                onclick="toggleLabControls('{{ op_key }}')">
+                            {{ op_meta.label }}
+                        </button>
+                        {% else %}
+                        <button class="w-full text-left px-3 py-1.5 text-xs text-surface-600 dark:text-surface-400 hover:text-white hover:bg-surface-50 dark:bg-surface-800 rounded-lg transition-all flex items-center justify-between"
+                                hx-post="/api/apply"
+                                hx-vals='{"operation": "{{ op_key }}"}'
+                                hx-target="#editor-content"
+                                hx-swap="innerHTML">
+                            <span>{{ op_meta.label }}</span>
+                            <span class="htmx-indicator"></span>
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% if op_meta.controls is defined and op_meta.controls %}
+                    <div class="op-controls hidden ml-2 pl-2 border-l border-surface-200 dark:border-surface-700 py-1" id="lab-controls-{{ op_key }}">
+                        {% include 'partials/' + op_meta.controls ignore missing %}
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </aside>
+
+    <!-- Center: Image + Histogram -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden" id="editor-content">
+        {% if processed is none %}
+        <div class="flex-1 flex items-center justify-center p-4">
+            <div class="text-center space-y-4">
+                <div class="w-16 h-16 mx-auto rounded-2xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/50 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-surface-800 dark:text-surface-300 font-medium">No image loaded</h3>
+                    <p class="text-surface-500 text-sm mt-1">Upload an image from the Editor first</p>
+                </div>
+                <a href="/editor" class="inline-block bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm">Go to Editor</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="flex-1 flex items-center justify-center p-4 bg-surface-950 min-h-0">
+            <img src="/api/image/processed?t={{ render_count }}" alt="Processed Image"
+                 class="max-w-full max-h-[calc(100vh-340px)] rounded-lg border border-surface-200 dark:border-surface-700/50 object-contain"
+                 id="processedImg">
+        </div>
+        <div class="px-4 py-1.5 bg-white dark:bg-surface-900/50 border-t border-surface-800 flex items-center gap-4 text-[11px] text-surface-500">
+            <span>{{ dimensions[1] }}x{{ dimensions[0] }}px</span>
+            <span class="text-surface-700">|</span>
+            <span>Filters: {{ filter_stack | length }}/30</span>
+        </div>
+        <div class="flex border-t border-surface-800 bg-white dark:bg-surface-900 max-h-48">
+            <div class="flex-1 p-3 overflow-y-auto border-r border-surface-800">
+                <h4 class="text-[11px] font-semibold text-surface-600 dark:text-surface-400 mb-2 uppercase tracking-wider">Applied Filters</h4>
+                {% if filter_stack %}
+                <div class="flex flex-wrap gap-1.5">
+                    {% for f in filter_stack %}
+                    <span class="inline-flex items-center gap-1 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-full px-2.5 py-0.5 text-[11px]">
+                        <span class="text-surface-500">{{ loop.index }}.</span>
+                        <span class="text-surface-800 dark:text-surface-300">{{ f.name }}</span>
+                        <button class="text-surface-500 hover:text-red-400 ml-0.5 transition-colors"
+                                hx-post="/api/remove/{{ f.id }}"
+                                hx-target="#editor-content"
+                                hx-swap="innerHTML">&times;</button>
+                    </span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-surface-600 text-xs italic">No filters applied</p>
+                {% endif %}
+            </div>
+            <div class="w-80 p-3">
+                <h4 class="text-[11px] font-semibold text-surface-600 dark:text-surface-400 mb-2 uppercase tracking-wider">Histogram</h4>
+                <div class="h-28">
+                    <canvas id="histogramCanvas" data-hist='{{ histogram | tojson }}'></canvas>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right: Info Panel (IIT-H structure) -->
+    <aside class="w-72 bg-white dark:bg-surface-900 border-l border-surface-200 dark:border-surface-700/50 flex flex-col shrink-0 overflow-y-auto sidebar-scroll lab-info-panel" id="lab-info-panel">
+        <div class="p-3 border-b border-surface-200 dark:border-surface-700/50 flex items-center justify-between cursor-pointer" onclick="document.getElementById('lab-info-body').classList.toggle('hidden'); this.querySelector('.info-arrow').style.transform = document.getElementById('lab-info-body').classList.contains('hidden') ? '' : 'rotate(90deg)'">
+            <div>
+                <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-300">Info Panel</h3>
+                <p class="text-[10px] text-surface-500 mt-0.5">IIT-H experiment structure</p>
+            </div>
+            <svg class="w-4 h-4 text-surface-500 transition-transform info-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+        <div class="p-3 space-y-3" id="lab-info-body">
+            <!-- Aim -->
+            <div class="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
+                <h4 class="text-[11px] font-semibold text-brand-400 mb-1 uppercase tracking-wider">Aim</h4>
+                <p class="text-[11px] text-surface-600 dark:text-surface-400 leading-relaxed">Explore and understand digital image processing algorithms through interactive experimentation.</p>
+            </div>
+
+            <!-- Theory (dynamically loaded based on selected category) -->
+            <div class="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3" id="lab-theory">
+                <h4 class="text-[11px] font-semibold text-brand-400 mb-1 uppercase tracking-wider">Theory</h4>
+                <div class="text-[10px] text-surface-600 dark:text-surface-400 leading-relaxed whitespace-pre-line" id="lab-theory-content">
+Select a category from the left to view its theory.
+                </div>
+            </div>
+
+            <!-- Procedure -->
+            <div class="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
+                <h4 class="text-[11px] font-semibold text-brand-400 mb-1 uppercase tracking-wider">Procedure</h4>
+                <ol class="text-[10px] text-surface-600 dark:text-surface-400 leading-relaxed space-y-1 list-decimal list-inside">
+                    <li>Upload an image from the Editor</li>
+                    <li>Select an operation from the left panel</li>
+                    <li>Adjust parameters using sliders</li>
+                    <li>Click Apply to process the image</li>
+                    <li>Observe changes in the image and histogram</li>
+                    <li>Compare results by toggling operations on/off</li>
+                </ol>
+            </div>
+
+            <!-- Observations -->
+            <div class="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
+                <h4 class="text-[11px] font-semibold text-brand-400 mb-1 uppercase tracking-wider">Observations</h4>
+                <div class="text-[10px] text-surface-600 dark:text-surface-400 leading-relaxed" id="lab-observations">
+                    <p>Image: {{ filename }}</p>
+                    <p>Filters applied: {{ filter_stack | length }}</p>
+                    <p>Current dimensions: {{ dimensions[1] }}x{{ dimensions[0] }}px</p>
+                </div>
+            </div>
+
+            <!-- Scratch vs Library -->
+            <div class="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
+                <h4 class="text-[11px] font-semibold text-brand-400 mb-1 uppercase tracking-wider">Implementation</h4>
+                <div class="text-[10px] text-surface-600 dark:text-surface-400 leading-relaxed">
+                    <p class="mb-1"><span class="text-emerald-400">Scratch</span>: Pure NumPy implementations</p>
+                    <ul class="list-disc list-inside ml-2 text-surface-500">
+                        <li>Negative transform</li>
+                        <li>Gamma correction</li>
+                        <li>Otsu thresholding</li>
+                        <li>Histogram equalization</li>
+                        <li>FFT spectrum</li>
+                    </ul>
+                    <p class="mt-1"><span class="text-blue-400">Library</span>: OpenCV optimized functions</p>
+                </div>
+            </div>
+
+            <!-- References -->
+            <div class="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
+                <h4 class="text-[11px] font-semibold text-brand-400 mb-1 uppercase tracking-wider">References</h4>
+                <div class="text-[10px] text-surface-600 dark:text-surface-400 leading-relaxed space-y-0.5">
+                    <p>1. Gonzalez & Woods, Digital Image Processing, 4th Ed.</p>
+                    <p>2. IIT Hyderabad Virtual Labs, MHRD Initiative</p>
+                    <p>3. OpenCV Documentation</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<script>
+function toggleLabGroup(btn) {
+    const content = btn.nextElementSibling;
+    const icon = btn.querySelector('.arrow-icon');
+    const isHidden = content.classList.contains('hidden');
+    content.classList.toggle('hidden');
+    icon.style.transform = isHidden ? 'rotate(90deg)' : '';
+}
+
+function toggleLabControls(opKey) {
+    const el = document.getElementById('lab-controls-' + opKey);
+    if (el) el.classList.toggle('hidden');
+}
+
+function toggleLabSidebar() {
+    document.getElementById('lab-sidebar').classList.toggle('open');
+    document.getElementById('lab-overlay').classList.toggle('open');
+}
+function toggleLabInfo() {
+    document.getElementById('lab-info-panel').classList.toggle('open');
+    document.getElementById('lab-overlay').classList.toggle('open');
+}
+function closeLabPanels() {
+    document.getElementById('lab-sidebar').classList.remove('open');
+    document.getElementById('lab-info-panel').classList.remove('open');
+    document.getElementById('lab-overlay').classList.remove('open');
+}
+
+// Load theory when category is selected
+const theoryData = {{ theory | tojson }};
+const opsData = {{ operations | tojson }};
+document.querySelectorAll('.op-group > button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const group = btn.closest('.op-group');
+        if (!group) return;
+        // Find any button in this group that has hx-vals (not all do — controls toggles don't)
+        const opBtn = group.querySelector('[hx-vals]');
+        if (!opBtn) return;
+        try {
+            const parsed = JSON.parse(opBtn.getAttribute('hx-vals'));
+            const op = parsed.operation;
+            if (opsData[op]) {
+                const cat = opsData[op].category;
+                const theory = theoryData[cat];
+                if (theory) {
+                    document.getElementById('lab-theory-content').textContent = theory.content;
+                }
+            }
+        } catch(e) {}
+    });
+});
+</script>
+{% endblock %}

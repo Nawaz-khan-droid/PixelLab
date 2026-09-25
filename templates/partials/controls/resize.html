@@ -1,0 +1,20 @@
+<div class="space-y-2">
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Width %</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="resizeWVal">100</span></label>
+        <input type="range" name="width_pct" min="10" max="200" value="100" class="w-full"
+               oninput="document.getElementById('resizeWVal').textContent=this.value">
+    </div>
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Height %</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="resizeHVal">100</span></label>
+        <input type="range" name="height_pct" min="10" max="200" value="100" class="w-full"
+               oninput="document.getElementById('resizeHVal').textContent=this.value">
+    </div>
+    <button class="w-full text-xs bg-brand-600 hover:bg-brand-500 text-white py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1"
+            hx-post="/api/apply"
+            hx-vals='{"operation": "resize"}'
+            hx-include="[name='width_pct'], [name='height_pct']"
+            hx-target="#editor-content"
+            hx-swap="innerHTML">
+        Apply Resize <span class="htmx-indicator"></span>
+    </button>
+</div>

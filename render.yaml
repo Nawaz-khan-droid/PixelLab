@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: pixellab
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt && python scripts/download_models.py"
+    startCommand: "gunicorn app:app --workers 1 --threads 1 --timeout 120 --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.11.9

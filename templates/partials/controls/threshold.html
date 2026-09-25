@@ -1,0 +1,33 @@
+<div class="space-y-2">
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Threshold</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="threshVal">127</span></label>
+        <input type="range" name="value" min="0" max="255" value="127" class="w-full"
+               oninput="document.getElementById('threshVal').textContent=this.value">
+    </div>
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 block mb-1">Mode</label>
+        <select name="mode" class="w-full bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 text-surface-800 dark:text-surface-300 text-xs rounded-lg px-2 py-1.5">
+            <option value="binary">Binary</option>
+            <option value="binary_inv">Binary Inverse</option>
+            <option value="trunc">Truncate</option>
+            <option value="tozero">To Zero</option>
+        </select>
+    </div>
+    <div class="flex gap-1.5">
+        <button class="flex-1 text-xs bg-brand-600 hover:bg-brand-500 text-white py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1"
+                hx-post="/api/apply"
+                hx-vals='{"operation": "threshold"}'
+                hx-include="[name='value'], [name='mode']"
+                hx-target="#editor-content"
+                hx-swap="innerHTML">
+            Apply <span class="htmx-indicator"></span>
+        </button>
+        <button class="flex-1 text-xs bg-surface-50 dark:bg-surface-800 hover:bg-surface-200 dark:bg-surface-700 text-surface-800 dark:text-surface-300 py-1.5 px-3 rounded-lg transition-all"
+                hx-post="/api/apply"
+                hx-vals='{"operation": "otsu"}'
+                hx-target="#editor-content"
+                hx-swap="innerHTML">
+            Otsu
+        </button>
+    </div>
+</div>

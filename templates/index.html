@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+{% block title %}PixelLab - Interactive Digital Image Processing{% endblock %}
+
+{% block head %}
+<style>
+/* Hero animated gradient background */
+.hero-gradient {
+    position: absolute; inset: 0; overflow: hidden; z-index: 0;
+}
+.hero-gradient .orb {
+    position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.4;
+    animation: float 8s ease-in-out infinite;
+}
+.hero-gradient .orb-1 { width: 500px; height: 500px; background: #4f46e5; top: -10%; left: -5%; animation-delay: 0s; }
+.hero-gradient .orb-2 { width: 400px; height: 400px; background: #7c3aed; top: 20%; right: -8%; animation-delay: -3s; }
+.hero-gradient .orb-3 { width: 300px; height: 300px; background: #2563eb; bottom: -5%; left: 30%; animation-delay: -5s; }
+@keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -30px) scale(1.05); }
+    66% { transform: translate(-20px, 20px) scale(0.95); }
+}
+
+/* Feature card 3D tilt */
+.feature-card {
+    transform-style: preserve-3d; transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.feature-card:hover {
+    box-shadow: 0 20px 60px rgba(99, 102, 241, 0.15);
+}
+.feature-card .card-shine {
+    position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.08), transparent 60%);
+    opacity: 0; transition: opacity 0.3s;
+}
+.feature-card:hover .card-shine { opacity: 1; }
+
+/* Ripple effect on buttons */
+.ripple-btn { position: relative; overflow: hidden; }
+.ripple-btn .ripple {
+    position: absolute; border-radius: 50%; background: rgba(255,255,255,0.3);
+    transform: scale(0); animation: ripple-anim 0.6s linear;
+}
+@keyframes ripple-anim { to { transform: scale(4); opacity: 0; } }
+
+/* Floating grid particles */
+.particle {
+    position: absolute; width: 2px; height: 2px; background: rgba(129, 140, 248, 0.4);
+    border-radius: 50%; animation: drift linear infinite;
+}
+@keyframes drift {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(-100vh) translateX(50px); opacity: 0; }
+}
+
+/* Stats counter */
+.stat-num { font-variant-numeric: tabular-nums; }
+
+/* Glow on hover for operation icons */
+.op-icon { transition: transform 0.3s ease, filter 0.3s ease; }
+.op-icon:hover { transform: scale(1.15) rotate(-3deg); filter: drop-shadow(0 0 8px rgba(129,140,248,0.5)); }
+
+/* Scroll reveal */
+.reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* Stagger children */
+.stagger > * { opacity: 0; transform: translateY(20px); transition: opacity 0.4s ease, transform 0.4s ease; }
+.stagger.visible > *:nth-child(1) { transition-delay: 0.05s; }
+.stagger.visible > *:nth-child(2) { transition-delay: 0.1s; }
+.stagger.visible > *:nth-child(3) { transition-delay: 0.15s; }
+.stagger.visible > *:nth-child(4) { transition-delay: 0.2s; }
+.stagger.visible > *:nth-child(5) { transition-delay: 0.25s; }
+.stagger.visible > *:nth-child(6) { transition-delay: 0.3s; }
+.stagger.visible > *:nth-child(7) { transition-delay: 0.35s; }
+.stagger.visible > *:nth-child(8) { transition-delay: 0.4s; }
+.stagger.visible > *:nth-child(9) { transition-delay: 0.45s; }
+.stagger.visible > *:nth-child(10) { transition-delay: 0.5s; }
+.stagger.visible > * { opacity: 1; transform: translateY(0); }
+
+/* Upload zone pulse */
+.upload-pulse {
+    animation: pulse-ring 2s ease-out infinite;
+}
+@keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(99, 102, 241, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+
+/* Typing cursor */
+.typing-cursor::after {
+    content: '|'; animation: blink 1s step-end infinite; color: #818cf8;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Smooth scroll */
+html { scroll-behavior: smooth; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ==================== HERO ==================== -->
+<section class="relative min-h-screen flex items-center justify-center overflow-hidden" id="hero">
+    <!-- Animated gradient orbs -->
+    <div class="hero-gradient">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <!-- Floating grid particles -->
+    <div id="particles" class="absolute inset-0 pointer-events-none z-0"></div>
+
+    <!-- Grid overlay -->
+    <div class="absolute inset-0 z-0" style="background-image: radial-gradient(rgba(99,102,241,0.07) 1px, transparent 1px); background-size: 40px 40px;"></div>
+
+    <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
+        <!-- Badge -->
+        <div class="inline-flex items-center gap-2 bg-surface-50 dark:bg-surface-800/60 backdrop-blur border border-surface-200 dark:border-surface-700/50 rounded-full px-4 py-1.5 mb-8 text-xs text-surface-800 dark:text-surface-300 reveal" id="hero-badge">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            35 Operations - Real-time Processing
+        </div>
+
+        <!-- Main heading -->
+        <h1 class="text-4xl sm:text-6xl lg:text-7xl font-bold mb-6 reveal" id="hero-title">
+            <span class="text-white">Digital Image</span><br>
+            <span class="bg-gradient-to-r from-brand-400 via-purple-400 to-brand-300 bg-clip-text text-transparent">Processing Lab</span>
+        </h1>
+
+        <!-- Subtitle -->
+        <p class="text-lg sm:text-xl text-surface-600 dark:text-surface-400 max-w-2xl mx-auto mb-10 reveal" id="hero-sub">
+            Upload, transform, and explore image processing algorithms interactively.
+            From edge detection to frequency domain filtering - see the math come alive.
+        </p>
+
+        <!-- CTA buttons -->
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 reveal" id="hero-cta">
+            <a href="/editor" class="ripple-btn group bg-brand-600 hover:bg-brand-500 text-white px-8 py-3.5 rounded-xl font-medium text-sm transition-all flex items-center gap-2 hover:scale-105 hover:shadow-lg hover:shadow-brand-600/25">
+                <svg class="w-5 h-5 transition-transform group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Start Editing
+            </a>
+            <a href="#features" class="text-surface-600 dark:text-surface-400 hover:text-white px-6 py-3.5 rounded-xl text-sm transition-all hover:bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/50 hover:border-surface-300 dark:border-surface-600">
+                Explore Features
+            </a>
+        </div>
+
+        <!-- Scroll hint -->
+        <div class="mt-16 reveal" id="hero-scroll">
+            <a href="#features" class="inline-flex flex-col items-center gap-1 text-surface-500 hover:text-surface-800 dark:text-surface-300 transition-colors">
+                <span class="text-xs">Scroll to explore</span>
+                <svg class="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== STATS ==================== -->
+<section class="relative py-16 border-y border-surface-800/50 bg-surface-950/80 backdrop-blur">
+    <div class="max-w-5xl mx-auto px-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 stagger reveal" id="stats">
+            <div class="text-center">
+                <div class="text-3xl sm:text-4xl font-bold text-brand-400 stat-num" data-target="35">0</div>
+                <div class="text-xs text-surface-500 mt-1">Operations</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl sm:text-4xl font-bold text-purple-400 stat-num" data-target="11">0</div>
+                <div class="text-xs text-surface-500 mt-1">Categories</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl sm:text-4xl font-bold text-blue-400 stat-num" data-target="5">0</div>
+                <div class="text-xs text-surface-500 mt-1">Scratch Ops</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl sm:text-4xl font-bold text-emerald-400 stat-num" data-target="0">0</div>
+                <div class="text-xs text-surface-500 mt-1">npm Packages</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== FEATURES ==================== -->
+<section class="py-20 px-4" id="features">
+    <div class="max-w-6xl mx-auto">
+        <div class="text-center mb-14 reveal">
+            <h2 class="text-3xl sm:text-4xl font-bold text-white mb-3">Everything You Need</h2>
+            <p class="text-surface-600 dark:text-surface-400 max-w-xl mx-auto">Complete digital image processing toolkit with real-time preview, non-destructive editing, and educational info panels.</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 stagger" id="feature-cards">
+            <!-- Card 1 -->
+            <div class="feature-card relative bg-white dark:bg-surface-900 border border-surface-800 rounded-2xl p-6 cursor-default group">
+                <div class="card-shine rounded-2xl"></div>
+                <div class="op-icon w-10 h-10 rounded-xl bg-brand-600/15 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <h3 class="text-white font-semibold mb-1.5">Geometric Transforms</h3>
+                <p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">Resize, crop, flip, rotate, and shear images with precise control over parameters.</p>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="feature-card relative bg-white dark:bg-surface-900 border border-surface-800 rounded-2xl p-6 cursor-default group">
+                <div class="card-shine rounded-2xl"></div>
+                <div class="op-icon w-10 h-10 rounded-xl bg-purple-600/15 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                </div>
+                <h3 class="text-white font-semibold mb-1.5">Point Operations</h3>
+                <p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">Negative, gamma correction, thresholding, and histogram equalization with pure NumPy implementations.</p>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="feature-card relative bg-white dark:bg-surface-900 border border-surface-800 rounded-2xl p-6 cursor-default group">
+                <div class="card-shine rounded-2xl"></div>
+                <div class="op-icon w-10 h-10 rounded-xl bg-blue-600/15 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                </div>
+                <h3 class="text-white font-semibold mb-1.5">Color Processing</h3>
+                <p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">Grayscale conversion, brightness/contrast, color balance, and hue/saturation adjustments.</p>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="feature-card relative bg-white dark:bg-surface-900 border border-surface-800 rounded-2xl p-6 cursor-default group">
+                <div class="card-shine rounded-2xl"></div>
+                <div class="op-icon w-10 h-10 rounded-xl bg-cyan-600/15 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                </div>
+                <h3 class="text-white font-semibold mb-1.5">Spatial Filters</h3>
+                <p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">Gaussian, mean, and median smoothing plus unsharp masking and high-boost sharpening.</p>
+            </div>
+
+            <!-- Card 5 -->
+            <div class="feature-card relative bg-white dark:bg-surface-900 border border-surface-800 rounded-2xl p-6 cursor-default group">
+                <div class="card-shine rounded-2xl"></div>
+                <div class="op-icon w-10 h-10 rounded-xl bg-rose-600/15 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </div>
+                <h3 class="text-white font-semibold mb-1.5">Edge Detection</h3>
+                <p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">Sobel gradient, Laplacian second derivative, and multi-stage Canny edge detector.</p>
+            </div>
+
+            <!-- Card 6 -->
+            <div class="feature-card relative bg-white dark:bg-surface-900 border border-surface-800 rounded-2xl p-6 cursor-default group">
+                <div class="card-shine rounded-2xl"></div>
+                <div class="op-icon w-10 h-10 rounded-xl bg-amber-600/15 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                </div>
+                <h3 class="text-white font-semibold mb-1.5">Frequency Domain</h3>
+                <p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">FFT spectrum analysis, low-pass and high-pass filtering using rfft2 for efficiency.</p>
+            </div>
+
+            <!-- Card 7 -->
+            <div class="feature-card relative bg-white dark:bg-surface-900 border border-surface-800 rounded-2xl p-6 cursor-default group">
+                <div class="card-shine rounded-2xl"></div>
+                <div class="op-icon w-10 h-10 rounded-xl bg-teal-600/15 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+                </div>
+                <h3 class="text-white font-semibold mb-1.5">Morphology</h3>
+                <p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">Erosion, dilation, opening, and closing operations on binary and grayscale images.</p>
+            </div>
+
+            <!-- Card 8 -->
+            <div class="feature-card relative bg-white dark:bg-surface-900 border border-surface-800 rounded-2xl p-6 cursor-default group">
+                <div class="card-shine rounded-2xl"></div>
+                <div class="op-icon w-10 h-10 rounded-xl bg-orange-600/15 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                </div>
+                <h3 class="text-white font-semibold mb-1.5">Live Histogram</h3>
+                <p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">Real-time RGB and grayscale histogram visualization with Chart.js as you apply operations.</p>
+            </div>
+
+            <!-- Card 9 -->
+            <div class="feature-card relative bg-white dark:bg-surface-900 border border-surface-800 rounded-2xl p-6 cursor-default group">
+                <div class="card-shine rounded-2xl"></div>
+                <div class="op-icon w-10 h-10 rounded-xl bg-emerald-600/15 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </div>
+                <h3 class="text-white font-semibold mb-1.5">Non-Destructive Stack</h3>
+                <p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">Full undo/redo with filter stack. Remove any operation and replay the entire chain.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== UPLOAD CTA ==================== -->
+<section class="py-20 px-4 relative" id="upload">
+    <div class="max-w-3xl mx-auto text-center reveal">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Ready to Process?</h2>
+        <p class="text-surface-600 dark:text-surface-400 mb-10">Upload any image and start experimenting with 35 different operations.</p>
+
+        <form action="/api/upload" method="POST" enctype="multipart/form-data" id="cta-form">
+            <div id="cta-dropzone"
+                 class="border-2 border-dashed border-surface-300 dark:border-surface-600 rounded-2xl p-14 cursor-pointer transition-all hover:border-brand-500 hover:bg-brand-500/5 upload-pulse mb-6"
+                 onclick="document.getElementById('cta-file').click()">
+                <div class="mb-4">
+                    <svg class="w-14 h-14 mx-auto text-surface-500 transition-colors group-hover:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                </div>
+                <p class="text-surface-800 dark:text-surface-300 font-medium mb-1" id="cta-drop-text">Drop an image here or click to browse</p>
+                <p class="text-surface-600 text-xs">JPG, PNG, BMP, WebP up to 16MB</p>
+                <input type="file" name="image" accept=".jpg,.jpeg,.png,.bmp,.webp" id="cta-file" class="hidden">
+            </div>
+            <button type="submit" id="cta-submit" disabled
+                    class="ripple-btn bg-brand-600 hover:bg-brand-500 disabled:bg-surface-200 dark:bg-surface-700 disabled:text-surface-500 text-white font-medium px-10 py-3.5 rounded-xl transition-all text-sm hover:scale-105 hover:shadow-lg hover:shadow-brand-600/25">
+                Open in Editor
+            </button>
+        </form>
+    </div>
+</section>
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="border-t border-surface-800/50 py-8 px-4">
+    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-surface-500">
+        <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            PixelLab - Digital Image Processing Virtual Lab
+        </div>
+        <div>Flask + HTMX + OpenCV + NumPy</div>
+    </div>
+</footer>
+
+<!-- ==================== JAVASCRIPT ==================== -->
+<script>
+(function() {
+    // -- Particles --
+    const particleContainer = document.getElementById('particles');
+    for (let i = 0; i < 40; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.top = (100 + Math.random() * 20) + '%';
+        p.style.animationDuration = (8 + Math.random() * 12) + 's';
+        p.style.animationDelay = -(Math.random() * 20) + 's';
+        p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+        particleContainer.appendChild(p);
+    }
+
+    // -- Scroll reveal --
+    const reveals = document.querySelectorAll('.reveal, .stagger');
+    const revealObs = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); revealObs.unobserve(e.target); } });
+    }, { threshold: 0.15 });
+    reveals.forEach(el => revealObs.observe(el));
+
+    // -- Stats counter --
+    const statNums = document.querySelectorAll('.stat-num');
+    const statObs = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+            if (!e.isIntersecting) return;
+            const el = e.target;
+            const target = parseInt(el.dataset.target);
+            if (target === 0) { el.textContent = '0'; statObs.unobserve(el); return; }
+            let current = 0;
+            const step = Math.max(1, Math.ceil(target / 40));
+            const timer = setInterval(() => {
+                current += step;
+                if (current >= target) { current = target; clearInterval(timer); }
+                el.textContent = current;
+            }, 30);
+            statObs.unobserve(el);
+        });
+    }, { threshold: 0.5 });
+    statNums.forEach(el => statObs.observe(el));
+
+    // -- 3D tilt on feature cards --
+    document.querySelectorAll('.feature-card').forEach(card => {
+        card.addEventListener('mousemove', e => {
+            const rect = card.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            const rotX = (y - 50) / 8;
+            const rotY = (x - 50) / -8;
+            card.style.transform = `perspective(600px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(1.02)`;
+            card.style.setProperty('--mx', x + '%');
+            card.style.setProperty('--my', y + '%');
+        });
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = '';
+        });
+    });
+
+    // -- Ripple on buttons --
+    document.querySelectorAll('.ripple-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            const rect = btn.getBoundingClientRect();
+            const ripple = document.createElement('span');
+            ripple.className = 'ripple';
+            const size = Math.max(rect.width, rect.height);
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+            ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+            btn.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        });
+    });
+
+    // -- Upload dropzone --
+    const dropzone = document.getElementById('cta-dropzone');
+    const fileInput = document.getElementById('cta-file');
+    const submitBtn = document.getElementById('cta-submit');
+    const dropText = document.getElementById('cta-drop-text');
+
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('border-brand-500', 'bg-brand-500/10'); });
+    dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('border-brand-500', 'bg-brand-500/10'); });
+    dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('border-brand-500', 'bg-brand-500/10');
+        fileInput.files = e.dataTransfer.files;
+        onFileSelected();
+    });
+    fileInput.addEventListener('change', onFileSelected);
+
+    function onFileSelected() {
+        if (fileInput.files.length > 0) {
+            dropText.textContent = fileInput.files[0].name;
+            dropText.classList.add('text-brand-400');
+            submitBtn.disabled = false;
+            dropzone.classList.remove('upload-pulse');
+        }
+    }
+
+    // -- Nav shrink on scroll --
+    const nav = document.querySelector('nav');
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 50) {
+            nav.classList.add('bg-surface-950/90', 'backdrop-blur', 'shadow-lg');
+        } else {
+            nav.classList.remove('bg-surface-950/90', 'backdrop-blur', 'shadow-lg');
+        }
+    });
+})();
+</script>
+{% endblock %}

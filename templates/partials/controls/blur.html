@@ -1,0 +1,60 @@
+<div class="space-y-3">
+    <!-- Gaussian Blur -->
+    <div class="bg-surface-50 dark:bg-surface-800/30 rounded-lg p-2">
+        <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-medium text-surface-800 dark:text-surface-300">Gaussian Blur</span>
+            <span class="text-[10px] text-surface-500 font-mono" id="blurVal_gaussian_blur">5</span>
+        </div>
+        <input type="range" name="kernel" min="1" max="101" step="2" value="5" class="w-full"
+               id="kernel_gaussian_blur"
+               oninput="document.getElementById('blurVal_gaussian_blur').textContent=this.value">
+        <button class="w-full text-[11px] bg-brand-600 hover:bg-brand-500 text-white py-1.5 px-3 rounded-lg transition-all mt-1.5 flex items-center justify-center gap-1"
+                hx-post="/api/apply"
+                hx-vals='{"operation": "gaussian_blur"}'
+                hx-include="#kernel_gaussian_blur"
+                hx-target="#editor-content"
+                hx-swap="innerHTML">
+            Apply Gaussian <span class="htmx-indicator"></span>
+        </button>
+    </div>
+
+    <!-- Mean Blur -->
+    <div class="bg-surface-50 dark:bg-surface-800/30 rounded-lg p-2">
+        <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-medium text-surface-800 dark:text-surface-300">Mean Blur</span>
+            <span class="text-[10px] text-surface-500 font-mono" id="blurVal_mean_blur">5</span>
+        </div>
+        <input type="range" name="kernel" min="1" max="101" step="2" value="5" class="w-full"
+               id="kernel_mean_blur"
+               oninput="document.getElementById('blurVal_mean_blur').textContent=this.value">
+        <button class="w-full text-[11px] bg-surface-200 dark:bg-surface-700 hover:bg-surface-600 text-surface-800 dark:text-surface-300 py-1.5 px-3 rounded-lg transition-all mt-1.5 flex items-center justify-center gap-1"
+                hx-post="/api/apply"
+                hx-vals='{"operation": "mean_blur"}'
+                hx-include="#kernel_mean_blur"
+                hx-target="#editor-content"
+                hx-swap="innerHTML">
+            Apply Mean <span class="htmx-indicator"></span>
+        </button>
+    </div>
+
+    <!-- Median Blur -->
+    <div class="bg-surface-50 dark:bg-surface-800/30 rounded-lg p-2">
+        <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-medium text-surface-800 dark:text-surface-300">Median Blur</span>
+            <span class="text-[10px] text-surface-500 font-mono" id="blurVal_median_blur">5</span>
+        </div>
+        <input type="range" name="kernel" min="1" max="101" step="2" value="5" class="w-full"
+               id="kernel_median_blur"
+               oninput="document.getElementById('blurVal_median_blur').textContent=this.value">
+        <button class="w-full text-[11px] bg-surface-200 dark:bg-surface-700 hover:bg-surface-600 text-surface-800 dark:text-surface-300 py-1.5 px-3 rounded-lg transition-all mt-1.5 flex items-center justify-center gap-1"
+                hx-post="/api/apply"
+                hx-vals='{"operation": "median_blur"}'
+                hx-include="#kernel_median_blur"
+                hx-target="#editor-content"
+                hx-swap="innerHTML">
+            Apply Median <span class="htmx-indicator"></span>
+        </button>
+    </div>
+
+    <p class="text-[9px] text-surface-600 leading-tight">Note: Operations are cumulative. Kernel=1 is a no-op (1x1 window). You cannot unblur by reducing kernel.</p>
+</div>

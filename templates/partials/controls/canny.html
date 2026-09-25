@@ -1,0 +1,20 @@
+<div class="space-y-2">
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Threshold 1</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="t1Val">100</span></label>
+        <input type="range" name="threshold1" min="0" max="255" value="100" class="w-full"
+               oninput="document.getElementById('t1Val').textContent=this.value">
+    </div>
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Threshold 2</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="t2Val">200</span></label>
+        <input type="range" name="threshold2" min="0" max="255" value="200" class="w-full"
+               oninput="document.getElementById('t2Val').textContent=this.value">
+    </div>
+    <button class="w-full text-xs bg-brand-600 hover:bg-brand-500 text-white py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1"
+            hx-post="/api/apply"
+            hx-vals='{"operation": "canny"}'
+            hx-include="[name='threshold1'], [name='threshold2']"
+            hx-target="#editor-content"
+            hx-swap="innerHTML">
+        Apply Canny <span class="htmx-indicator"></span>
+    </button>
+</div>

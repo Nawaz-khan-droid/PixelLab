@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+{% block title %}PixelLab - Live{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-[calc(100vh-56px)]">
+    <!-- Top bar -->
+    <div class="flex items-center justify-between px-3 md:px-4 py-2 bg-surface-900 border-b border-surface-800 gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+            <a href="/" class="text-surface-400 hover:text-white transition-colors shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </a>
+            <span class="text-sm text-surface-300 font-medium">Live Analysis</span>
+            <span class="text-[10px] text-surface-500 hidden sm:inline">webcam · on-device browser capture</span>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+            <span class="text-[10px] px-2 py-1 rounded-md border border-surface-700/60 text-surface-500 hidden md:inline">
+                Detection: {{ detection_status }}
+            </span>
+            <span class="text-[10px] px-2 py-1 rounded-md border border-surface-700/60 text-surface-500 hidden md:inline">
+                Deepfake: {{ deepfake_status }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex-1 flex flex-col md:flex-row min-h-0">
+        <!-- Viewfinder -->
+        <div class="flex-1 flex flex-col items-center justify-center p-3 md:p-4 bg-surface-950 min-h-0 relative">
+            <div id="camera-wrap" class="relative w-full max-w-2xl">
+                <video id="cam" autoplay playsinline muted
+                       class="w-full h-auto rounded-lg border border-surface-700/50 bg-black object-contain"
+                       style="aspect-ratio: 4/3;"></video>
+                <canvas id="overlay"
+                        class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+                <!-- Deepfake verdict card -->
+                <div id="df-card"
+                     class="hidden absolute top-3 left-3 right-3 rounded-xl p-3 border backdrop-blur-sm transition-colors">
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="df-label" class="text-lg font-bold tracking-wide"></span>
+                        <span id="df-model" class="text-[10px] font-mono opacity-70"></span>
+                    </div>
+                    <div class="h-2 rounded-full bg-black/30 overflow-hidden">
+                        <div id="df-bar" class="h-full transition-all duration-300" style="width:0%"></div>
+                    </div>
+                    <div class="flex justify-between mt-1 text-[10px] opacity-70">
+                        <span>ORIGINAL</span>
+                        <span id="df-score" class="font-mono"></span>
+                        <span>DEEPFAKE</span>
+                    </div>
+                    <div id="df-detail" class="flex gap-3 mt-2 text-[10px]"></div>
+                </div>
+            </div>
+
+            <!-- No-camera placeholder -->
+            <div id="cam-off" class="flex flex-col items-center gap-3 text-center">
+                <div class="w-16 h-16 rounded-2xl bg-surface-800/50 border border-surface-700/50 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                </div>
+                <p id="cam-off-msg" class="text-surface-500 text-sm">Camera is off</p>
+            </div>
+        </div>
+
+        <!-- Side panel -->
+        <aside class="w-full md:w-80 shrink-0 border-t md:border-t-0 md:border-l border-surface-700/50 bg-surface-900 flex flex-col">
+            <!-- Controls -->
+            <div class="p-3 border-b border-surface-700/50 space-y-2.5">
+                <div class="flex gap-2">
+                    <button id="btn-start" onclick="startCam()"
+                            class="flex-1 text-xs bg-brand-600 hover:bg-brand-500 text-white py-2 rounded-lg transition-colors font-medium">
+                        Start Camera
+                    </button>
+                    <button id="btn-stop" onclick="stopCam()"
+                            class="flex-1 text-xs bg-surface-800 hover:bg-surface-700 text-surface-300 py-2 rounded-lg transition-colors hidden">
+                        Stop
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <button class="mode-btn flex-1 text-xs py-2 rounded-lg border transition-all active-mode"
+                            data-mode="detect" onclick="setMode(this)">Object Detect</button>
+                    <button class="mode-btn flex-1 text-xs py-2 rounded-lg border transition-all"
+                            data-mode="deepfake" onclick="setMode(this)">Deepfake Scan</button>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div class="px-3 py-2 border-b border-surface-700/50 flex items-center gap-3 text-[11px] text-surface-500">
+                <span id="stat-live" class="inline-flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-surface-600"></span> idle
+                </span>
+                <span id="stat-inf" class="font-mono"></span>
+                <span id="stat-fps" class="font-mono"></span>
+            </div>
+
+            <!-- Results -->
+            <div class="flex-1 overflow-y-auto sidebar-scroll p-3" id="results">
+                <p class="text-surface-600 text-xs">Start the camera to begin analysis. Frames are sent to the server as small JPEGs; results return as JSON and are drawn here.</p>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<script type="module">
+import { ObjectDetector, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js";
+
+// ---- constants ----
+var CAM_W = 640, CAM_H = 480;
+var mode = 'detect';            // 'detect' | 'deepfake'
+var stream = null, inFlight = false;
+var lastFrames = [], fps = 0;
+
+let objectDetector;
+let runningMode = "VIDEO";
+let lastVideoTime = -1;
+let rafId = null;
+
+// Initialize MediaPipe
+async function initMediaPipe() {
+    setStat('bg-amber-400', 'loading model...');
+    try {
+        const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+        );
+        objectDetector = await ObjectDetector.createFromOptions(vision, {
+            baseOptions: {
+                modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
+                delegate: "CPU"
+            },
+            scoreThreshold: 0.35,
+            runningMode: runningMode
+        });
+        if (stream) setStat('bg-emerald-500', 'live');
+    } catch (e) {
+        setStat('bg-red-500', 'model error');
+        console.error(e);
+    }
+}
+initMediaPipe();
+
+window.setMode = function(btn) {
+    if (!stream) return;
+    document.querySelectorAll('.mode-btn').forEach(b => {
+        b.classList.remove('active-mode');
+        b.classList.add('text-surface-500');
+    });
+    btn.classList.add('active-mode');
+    btn.classList.remove('text-surface-500');
+    mode = btn.dataset.mode;
+    
+    if (mode === 'deepfake') {
+        document.getElementById('df-card').classList.remove('hidden');
+        document.getElementById('results').innerHTML = 
+            '<div class="flex flex-col items-center justify-center h-full gap-3">' +
+            '<p class="text-xs text-surface-500 text-center">Click below to capture a frame and send it to SightEngine for analysis.</p>' +
+            '<button onclick="scanDeepfakeFrame()" id="btn-scan-frame" class="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Scan Frame</button>' +
+            '</div>';
+        
+        // Clear canvas
+        var canvas = document.getElementById('overlay');
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    } else {
+        document.getElementById('df-card').classList.add('hidden');
+        document.getElementById('results').innerHTML = '<p class="text-surface-600 text-xs">Running MediaPipe object detection...</p>';
+        if (stream && objectDetector) {
+            lastVideoTime = -1;
+            predictWebcam();
+        }
+    }
+}
+
+window.setStat = function(klass, text) {
+    var dot = document.querySelector('#stat-live span');
+    dot.className = 'w-2 h-2 rounded-full ' + klass;
+    document.getElementById('stat-live').lastChild.nodeValue = ' ' + text;
+}
+
+function renderDetections(dets) {
+    var rows = dets.map(function(o, i) {
+        var conf = o.categories[0].score;
+        var label = o.categories[0].categoryName;
+        return '<div class="flex items-center gap-2 py-1 border-b border-surface-800/60 last:border-0">' +
+            '<span class="text-[10px] font-mono text-surface-500 w-5">' + (i + 1) + '</span>' +
+            '<span class="text-xs text-surface-300 capitalize flex-1 truncate">' + label + '</span>' +
+            '<div class="w-20 h-1.5 rounded-full bg-surface-800 overflow-hidden">' +
+            '<div class="h-full bg-brand-500" style="width:' + Math.round(conf * 100) + '%"></div></div>' +
+            '<span class="text-[10px] font-mono text-brand-300 w-10 text-right">' + Math.round(conf * 100) + '%</span>' +
+        '</div>';
+    }).join('');
+    document.getElementById('results').innerHTML = rows ||
+        '<p class="text-surface-600 text-xs">No objects detected in frame.</p>';
+}
+
+function drawBoxes(dets) {
+    var canvas = document.getElementById('overlay');
+    var wrap = document.getElementById('camera-wrap');
+    var video = document.getElementById('cam');
+    
+    // Setup canvas size to match visual video size
+    var cw = wrap.clientWidth;
+    var ch = wrap.clientHeight;
+    
+    // The actual video dimensions might be different from display size due to object-contain
+    // We need to calculate the actual letterboxed dimensions
+    var vidRatio = video.videoWidth / video.videoHeight;
+    var wrapRatio = cw / ch;
+    
+    var actualW, actualH, offsetX = 0, offsetY = 0;
+    if (vidRatio > wrapRatio) {
+        actualW = cw;
+        actualH = cw / vidRatio;
+        offsetY = (ch - actualH) / 2;
+    } else {
+        actualH = ch;
+        actualW = ch * vidRatio;
+        offsetX = (cw - actualW) / 2;
+    }
+    
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    dets.forEach(function(o) {
+        var box = o.boundingBox;
+        // box coords are in original video pixel space
+        var scaleX = actualW / video.videoWidth;
+        var scaleY = actualH / video.videoHeight;
+        
+        var x = (box.originX * scaleX) + offsetX;
+        var y = (box.originY * scaleY) + offsetY;
+        var w = box.width * scaleX;
+        var h = box.height * scaleY;
+        
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, w, h);
+        ctx.font = '11px system-ui';
+        var label = o.categories[0].categoryName + ' ' + Math.round(o.categories[0].score * 100) + '%';
+        var tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(34,211,238,0.9)';
+        ctx.fillRect(x, Math.max(0, y - 16), tw + 8, 16);
+        ctx.fillStyle = '#020617';
+        ctx.fillText(label, x + 4, Math.max(11, y - 3));
+    });
+}
+
+function predictWebcam() {
+    if (mode !== 'detect' || !stream || !objectDetector) return;
+    
+    var video = document.getElementById('cam');
+    if (video.currentTime !== lastVideoTime && video.videoWidth > 0) {
+        lastVideoTime = video.currentTime;
+        var t0 = performanceNow();
+        var detections = objectDetector.detectForVideo(video, t0);
+        var infer_ms = performanceNow() - t0;
+        
+        drawBoxes(detections.detections);
+        renderDetections(detections.detections);
+        
+        document.getElementById('stat-inf').textContent = 'infer ' + infer_ms.toFixed(1) + 'ms';
+        setStat('bg-emerald-500', 'live · ' + detections.detections.length + ' obj');
+        
+        // Calculate FPS
+        var n = lastFrames.push(Date.now());
+        if (lastFrames.length > 20) lastFrames.shift();
+        if (lastFrames.length > 1) {
+            var dt = (lastFrames[lastFrames.length - 1] - lastFrames[0]) / (lastFrames.length - 1);
+            fps = (1000 / dt).toFixed(1);
+            document.getElementById('stat-fps').textContent = fps + ' fps';
+        }
+    }
+    
+    rafId = requestAnimationFrame(predictWebcam);
+}
+
+window.startCam = function() {
+    var v = navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: CAM_W }, height: { ideal: CAM_H } }
+    });
+    v.then(function(s) {
+        stream = s;
+        var video = document.getElementById('cam');
+        video.srcObject = s;
+        
+        // Setup canvas resolution
+        var canvas = document.getElementById('overlay');
+        var wrap = document.getElementById('camera-wrap');
+        canvas.width = wrap.clientWidth;
+        canvas.height = wrap.clientHeight;
+        
+        document.getElementById('btn-start').classList.add('hidden');
+        document.getElementById('btn-stop').classList.remove('hidden');
+        document.getElementById('cam-off').style.display = 'none';
+        
+        if (objectDetector) {
+            setStat('bg-emerald-500', 'live');
+            if (mode === 'detect') {
+                lastVideoTime = -1;
+                predictWebcam();
+            }
+        } else {
+            setStat('bg-amber-400', 'waiting for model...');
+        }
+    }).catch(function(e) {
+        setStat('bg-red-500', 'camera error');
+        document.getElementById('cam-off-msg').textContent = 'Camera denied or unavailable: ' + e.name;
+        document.getElementById('cam-off').style.display = 'flex';
+    });
+}
+
+window.stopCam = function() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (stream) stream.getTracks().forEach(function(t) { t.stop(); });
+    stream = null; inFlight = false;
+    document.getElementById('btn-start').classList.remove('hidden');
+    document.getElementById('btn-stop').classList.add('hidden');
+    document.getElementById('cam-off').style.display = 'flex';
+    document.getElementById('cam-off-msg').textContent = 'Camera is off';
+    document.getElementById('df-card').classList.add('hidden');
+    document.getElementById('results').innerHTML =
+        '<p class="text-surface-600 text-xs">Start the camera to begin analysis.</p>';
+    setStat('bg-surface-600', 'idle');
+    document.getElementById('stat-inf').textContent = '';
+    document.getElementById('stat-fps').textContent = '';
+    
+    // Clear canvas
+    var canvas = document.getElementById('overlay');
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+window.scanDeepfakeFrame = function() {
+    if (inFlight) return;
+    var btn = document.getElementById('btn-scan-frame');
+    if (btn) { btn.textContent = 'Scanning...'; btn.disabled = true; }
+    
+    var video = document.getElementById('cam');
+    if (!video.videoWidth) return;
+    var canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; 
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    canvas.toBlob(function(blob) {
+        var formData = new FormData();
+        formData.append('image', blob, 'frame.jpg');
+        formData.append('models', 'deepfake');
+        
+        inFlight = true;
+        setStat('bg-amber-400', 'analyzing...');
+        
+        fetch('/api/sightengine/scan', {
+            method: 'POST',
+            body: formData
+        }).then(r => r.json()).then(data => {
+            inFlight = false;
+            if (btn) { btn.textContent = 'Scan Frame'; btn.disabled = false; }
+            setStat('bg-emerald-500', 'live');
+            
+            if (data.error) {
+                showToast(data.message, 'error');
+                return;
+            }
+            
+            showDeepfake(data);
+        }).catch(e => {
+            inFlight = false;
+            if (btn) { btn.textContent = 'Scan Frame'; btn.disabled = false; }
+            setStat('bg-red-500', 'network error');
+            showToast('Network error', 'error');
+        });
+    }, 'image/jpeg', 0.8);
+}
+
+function showDeepfake(d) {
+    var card = document.getElementById('df-card');
+    card.classList.remove('hidden');
+    card.classList.remove('bg-emerald-900/60', 'border-emerald-500/50', 'bg-red-900/60', 'border-red-500/50');
+    
+    var dfScore = d.deepfake || 0;
+    var isDf = dfScore > 0.5;
+    
+    if (isDf) {
+        card.classList.add('bg-red-900/60', 'border-red-500/50');
+        document.getElementById('df-label').textContent = 'DEEPFAKE';
+    } else {
+        card.classList.add('bg-emerald-900/60', 'border-emerald-500/50');
+        document.getElementById('df-label').textContent = 'ORIGINAL';
+    }
+    document.getElementById('df-label').style.color = isDf ? '#f87171' : '#34d399';
+    document.getElementById('df-model').textContent = 'SightEngine API';
+    document.getElementById('df-score').textContent = Math.round(dfScore * 100) + '%';
+    document.getElementById('df-bar').style.width = Math.round(dfScore * 100) + '%';
+    document.getElementById('df-bar').style.background = isDf ? '#ef4444' : '#10b981';
+    
+    document.getElementById('df-detail').innerHTML = 
+        '<span>CONFIDENCE: ' + Math.round(Math.max(dfScore, 1-dfScore) * 100) + '%</span>';
+}
+
+function performanceNow() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+
+// Toast from sightengine.html
+window.showToast = function(msg, type='info') {
+    const el = document.createElement('div');
+    el.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg text-sm text-white toast-enter z-50 ${type==='error'?'bg-red-500':'bg-brand-600'}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(()=>el.remove(), 300); }, 3000);
+}
+</script>
+
+<style>
+    .active-mode { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.6) !important; color: var(--brand-light) !important; }
+    .mode-btn { border-color: var(--border); color: var(--text-dim); background: transparent; }
+</style>
+{% endblock %}

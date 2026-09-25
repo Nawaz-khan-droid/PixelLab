@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PixelLab{% endblock %}</title>
+    <script>
+    (function() {
+        var t = localStorage.getItem('theme');
+        if (t === 'light') document.documentElement.classList.remove('dark');
+        else if (t === 'dark') document.documentElement.classList.add('dark');
+        else document.documentElement.classList.add('dark');
+    })();
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        darkMode: 'class',
+        theme: {
+            extend: {
+                colors: {
+                    surface: { 50:'#f8fafc',100:'#f1f5f9',200:'#e2e8f0',300:'#cbd5e1',400:'#94a3b8',500:'#64748b',600:'#475569',700:'#334155',800:'#1e293b',900:'#0f172a',950:'#020617' },
+                    brand: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81' }
+                }
+            }
+        }
+    }
+    </script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #020617; --bg-raised: #0f172a; --bg-surface: #1e293b;
+            --border: #334155; --text: #e2e8f0; --text-dim: #94a3b8; --text-muted: #64748b;
+            --brand: #6366f1; --brand-light: #818cf8;
+        }
+        [x-cloak] { display: none !important; }
+        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .toast-enter { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: inline-block; }
+        .htmx-request .htmx-indicator::after { content: ''; width: 14px; height: 14px; border: 2px solid var(--brand-light); border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; vertical-align: middle; margin-left: 6px; }
+        input[type="range"] { -webkit-appearance: none; height: 4px; background: var(--border); border-radius: 2px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--brand); cursor: pointer; border: 2px solid var(--bg); }
+        input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--brand); cursor: pointer; border: 2px solid var(--bg); }
+        @media (max-width: 768px) {
+            .lab-sidebar { position: fixed; left: 0; top: 56px; bottom: 0; z-index: 60; transform: translateX(-100%); transition: transform 0.2s ease; width: 260px; }
+            .lab-sidebar.open { transform: translateX(0); }
+            .lab-info-panel { position: fixed; right: 0; top: 56px; bottom: 0; z-index: 60; transform: translateX(100%); transition: transform 0.2s ease; width: 280px; }
+            .lab-info-panel.open { transform: translateX(0); }
+            .lab-overlay { display: none; position: fixed; inset: 0; top: 56px; background: rgba(0,0,0,0.5); z-index: 55; }
+            .lab-overlay.open { display: block; }
+            .editor-panel { max-height: 200px; overflow-y: auto; }
+            .editor-tab { font-size: 11px !important; padding: 6px 4px !important; }
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body style="background:var(--bg);color:var(--text)">
+    <nav style="background:var(--bg-raised);border-bottom:1px solid var(--border)" class="px-4 py-3 flex items-center justify-between sticky top-0 z-50">
+        <a href="/" class="flex items-center gap-2 font-bold text-lg no-underline transition-colors" style="color:var(--brand)">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            PixelLab
+        </a>
+        <div class="flex items-center gap-3">
+            {% if session.get('sid') %}
+            <a href="/editor" class="text-sm transition-colors px-3 py-1.5 rounded-lg" style="{% if request.path == '/editor' %}background:var(--bg-surface);color:var(--text);font-weight:500{% else %}color:var(--text-dim){% endif %}">Editor</a>
+            <a href="/lab" class="text-sm transition-colors px-3 py-1.5 rounded-lg" style="{% if request.path == '/lab' %}background:var(--bg-surface);color:var(--text);font-weight:500{% else %}color:var(--text-dim){% endif %}">Lab</a>
+            <a href="/live" class="text-sm transition-colors px-3 py-1.5 rounded-lg" style="{% if request.path == '/live' %}background:var(--bg-surface);color:var(--text);font-weight:500{% else %}color:var(--text-dim){% endif %}">Live</a>
+            <a href="/sightengine" class="text-sm transition-colors px-3 py-1.5 rounded-lg" style="{% if request.path == '/sightengine' %}background:var(--bg-surface);color:var(--text);font-weight:500{% else %}color:var(--text-dim){% endif %}">AI Scan</a>
+            <a href="/download" class="text-sm transition-colors px-3 py-1.5 rounded-lg" style="{% if request.path == '/download' %}background:var(--bg-surface);color:var(--text);font-weight:500{% else %}color:var(--text-dim){% endif %}">Download</a>
+            {% endif %}
+            <button onclick="toggleTheme()" class="p-2 rounded-lg transition-colors" style="color:var(--text-dim)" title="Toggle theme">
+                <svg class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                <svg class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+            </button>
+        </div>
+    </nav>
+
+    <main class="min-h-[calc(100vh-56px)]">
+        {% block content %}{% endblock %}
+    </main>
+
+    <div id="toast-container" class="fixed top-16 right-4 z-[100] flex flex-col gap-2"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+    function toggleTheme() {
+        var html = document.documentElement;
+        var isDark = html.classList.contains('dark');
+        if (isDark) {
+            html.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        } else {
+            html.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        }
+    }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,28 @@
+<div class="space-y-2">
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Radius</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="freqVal">30</span></label>
+        <input type="range" name="radius" min="5" max="100" value="30" class="w-full"
+               oninput="document.getElementById('freqVal').textContent=this.value">
+    </div>
+    <div class="flex gap-1.5">
+        <button class="flex-1 text-xs bg-brand-600 hover:bg-brand-500 text-white py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1"
+                hx-post="/api/apply"
+                hx-vals='{"operation": "fft_spectrum"}'
+                hx-target="#editor-content"
+                hx-swap="innerHTML">
+            FFT <span class="htmx-indicator"></span>
+        </button>
+        <button class="flex-1 text-xs bg-surface-50 dark:bg-surface-800 hover:bg-surface-200 dark:bg-surface-700 text-surface-800 dark:text-surface-300 py-1.5 px-2 rounded-lg transition-all"
+                hx-post="/api/apply"
+                hx-vals='{"operation": "lowpass"}'
+                hx-include="[name='radius']"
+                hx-target="#editor-content"
+                hx-swap="innerHTML">Low</button>
+        <button class="flex-1 text-xs bg-surface-50 dark:bg-surface-800 hover:bg-surface-200 dark:bg-surface-700 text-surface-800 dark:text-surface-300 py-1.5 px-2 rounded-lg transition-all"
+                hx-post="/api/apply"
+                hx-vals='{"operation": "highpass"}'
+                hx-include="[name='radius']"
+                hx-target="#editor-content"
+                hx-swap="innerHTML">High</button>
+    </div>
+</div>

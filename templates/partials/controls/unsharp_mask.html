@@ -1,0 +1,15 @@
+<div class="space-y-2">
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Strength</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="unsharpStrVal">1.5</span></label>
+        <input type="range" name="strength" min="1.0" max="3.0" step="0.1" value="1.5" class="w-full"
+               oninput="document.getElementById('unsharpStrVal').textContent=parseFloat(this.value).toFixed(1)">
+    </div>
+    <button class="w-full text-xs bg-brand-600 hover:bg-brand-500 text-white py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1"
+            hx-post="/api/apply"
+            hx-vals='{"operation": "unsharp_mask"}'
+            hx-include="[name='strength']"
+            hx-target="#editor-content"
+            hx-swap="innerHTML">
+        Apply <span class="htmx-indicator"></span>
+    </button>
+</div>

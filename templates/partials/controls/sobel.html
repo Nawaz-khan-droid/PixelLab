@@ -1,0 +1,19 @@
+<div class="space-y-2">
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400">Kernel Size</label>
+        <select name="ksize" class="w-full bg-surface-50 dark:bg-surface-800 border border-surface-300 dark:border-surface-600 rounded-lg px-2 py-1.5 text-xs text-surface-800 dark:text-surface-300">
+            <option value="1">1</option>
+            <option value="3" selected>3</option>
+            <option value="5">5</option>
+            <option value="7">7</option>
+        </select>
+    </div>
+    <button class="w-full text-xs bg-brand-600 hover:bg-brand-500 text-white py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1"
+            hx-post="/api/apply"
+            hx-vals='{"operation": "sobel"}'
+            hx-include="[name='ksize']"
+            hx-target="#editor-content"
+            hx-swap="innerHTML">
+        Apply <span class="htmx-indicator"></span>
+    </button>
+</div>

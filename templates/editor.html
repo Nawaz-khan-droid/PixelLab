@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}PixelLab - Editor{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-[calc(100vh-56px)]">
+    <!-- Top bar -->
+    <div class="flex items-center justify-between px-3 md:px-4 py-2 bg-white dark:bg-surface-900 border-b border-surface-800 gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+            <a href="/" class="text-surface-600 dark:text-surface-400 hover:text-white transition-colors shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </a>
+            <span class="text-sm text-surface-800 dark:text-surface-300 font-medium truncate">{{ filename }}</span>
+            {% if processed is not none %}
+            <span class="text-[10px] text-surface-500 hidden sm:inline">{{ dimensions[1] }}x{{ dimensions[0] }}</span>
+            {% endif %}
+        </div>
+        <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+            {% if processed is not none %}
+            <button class="text-xs text-surface-600 dark:text-surface-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-surface-50 dark:bg-surface-800 transition-all"
+                    hx-post="/api/undo" hx-target="#editor-content" hx-swap="innerHTML">
+                Undo
+            </button>
+            <button class="text-xs text-surface-600 dark:text-surface-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-surface-50 dark:bg-surface-800 transition-all"
+                    hx-post="/api/reset" hx-target="#editor-content" hx-swap="innerHTML">
+                Reset
+            </button>
+            <a href="/download" class="text-xs bg-brand-600 hover:bg-brand-500 text-white px-4 py-1.5 rounded-lg transition-all font-medium">Save</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Image area -->
+    <div class="flex-1 flex items-center justify-center bg-surface-950 min-h-0 p-4" id="editor-content">
+        {% if processed is none %}
+        <div class="text-center space-y-4">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/50 flex items-center justify-center">
+                <svg class="w-8 h-8 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </div>
+            <div>
+                <h3 class="text-surface-800 dark:text-surface-300 font-medium">No image loaded</h3>
+                <p class="text-surface-500 text-sm mt-1">Upload an image to start editing</p>
+            </div>
+            <label class="inline-block cursor-pointer">
+                <span class="bg-brand-600 hover:bg-brand-500 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-all inline-block">Load Image</span>
+                <input type="file" name="image" accept="image/*" class="hidden"
+                       hx-post="/api/upload" hx-encoding="multipart/form-data" hx-target="#editor-content" hx-swap="innerHTML">
+            </label>
+            <p class="text-surface-600 text-xs">or drop a file here</p>
+        </div>
+        {% else %}
+        <img src="/api/image/processed?t={{ render_count }}" alt="Processed Image"
+             class="max-w-full max-h-[calc(100vh-220px)] rounded-lg border border-surface-200 dark:border-surface-700/50 object-contain">
+        {% endif %}
+    </div>
+
+    {% if processed is not none %}
+    <!-- Bottom toolbar -->
+    <div class="bg-white dark:bg-surface-900 border-t border-surface-800">
+        <!-- Tab buttons -->
+        <div class="flex border-b border-surface-800">
+            <button class="flex-1 py-2.5 text-xs font-medium text-center transition-colors editor-tab active-tab" data-tab="adjust" onclick="switchEditorTab(this)">
+                Adjust
+            </button>
+            <button class="flex-1 py-2.5 text-xs font-medium text-center transition-colors editor-tab text-surface-500 hover:text-surface-800 dark:text-surface-300" data-tab="transform" onclick="switchEditorTab(this)">
+                Transform
+            </button>
+            <button class="flex-1 py-2.5 text-xs font-medium text-center transition-colors editor-tab text-surface-500 hover:text-surface-800 dark:text-surface-300" data-tab="filters" onclick="switchEditorTab(this)">
+                Filters
+            </button>
+            <button class="flex-1 py-2.5 text-xs font-medium text-center transition-colors editor-tab text-surface-500 hover:text-surface-800 dark:text-surface-300" data-tab="history" onclick="switchEditorTab(this)">
+                History
+            </button>
+        </div>
+
+        <!-- Tab content -->
+        <div class="p-3">
+            <!-- ADJUST TAB -->
+            <div class="editor-panel" id="panel-adjust">
+                <div class="flex gap-4 overflow-x-auto">
+                    <!-- Brightness -->
+                    <div class="flex-shrink-0 w-36">
+                        <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Brightness</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjBright">0</span></label>
+                        <input type="range" name="brightness" min="-100" max="100" value="0" class="w-full" id="adj-brightness"
+                               oninput="document.getElementById('adjBright').textContent=this.value">
+                        <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all"
+                                hx-post="/api/apply" hx-vals='{"operation": "brightness_contrast"}' hx-include="#adj-brightness" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
+                    </div>
+                    <!-- Contrast -->
+                    <div class="flex-shrink-0 w-36">
+                        <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Contrast</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjContrast">1.0</span></label>
+                        <input type="range" name="contrast" min="0.5" max="2.0" step="0.1" value="1.0" class="w-full" id="adj-contrast"
+                               oninput="document.getElementById('adjContrast').textContent=parseFloat(this.value).toFixed(1)">
+                        <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all"
+                                hx-post="/api/apply" hx-vals='{"operation": "brightness_contrast"}' hx-include="#adj-brightness, #adj-contrast" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
+                    </div>
+                    <!-- Saturation -->
+                    <div class="flex-shrink-0 w-36">
+                        <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Saturation</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjSat">1.0</span></label>
+                        <input type="range" name="sat_factor" min="0.0" max="2.0" step="0.1" value="1.0" class="w-full" id="adj-saturation"
+                               oninput="document.getElementById('adjSat').textContent=parseFloat(this.value).toFixed(1)">
+                        <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all"
+                                hx-post="/api/apply" hx-vals='{"operation": "hue_saturation"}' hx-include="#adj-saturation" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
+                    </div>
+                    <!-- Temperature -->
+                    <div class="flex-shrink-0 w-36">
+                        <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Temperature</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjTemp">0.0</span></label>
+                        <input type="range" name="warmth" min="-1.0" max="1.0" step="0.1" value="0" class="w-full" id="adj-temperature"
+                               oninput="document.getElementById('adjTemp').textContent=parseFloat(this.value).toFixed(1)">
+                        <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all"
+                                hx-post="/api/apply" hx-vals='{"operation": "temperature"}' hx-include="#adj-temperature" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
+                    </div>
+                    <!-- Blur -->
+                    <div class="flex-shrink-0 w-36">
+                        <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Blur</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjBlur">5</span></label>
+                        <input type="range" name="kernel" min="1" max="51" step="2" value="5" class="w-full" id="adj-blur"
+                               oninput="document.getElementById('adjBlur').textContent=this.value">
+                        <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all"
+                                hx-post="/api/apply" hx-vals='{"operation": "gaussian_blur"}' hx-include="#adj-blur" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
+                    </div>
+                    <!-- Sharpen -->
+                    <div class="flex-shrink-0 w-36">
+                        <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Sharpen</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjSharp">1.5</span></label>
+                        <input type="range" name="strength" min="1.0" max="3.0" step="0.1" value="1.5" class="w-full" id="adj-sharpen"
+                               oninput="document.getElementById('adjSharp').textContent=parseFloat(this.value).toFixed(1)">
+                        <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all"
+                                hx-post="/api/apply" hx-vals='{"operation": "unsharp_mask"}' hx-include="#adj-sharpen" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TRANSFORM TAB -->
+            <div class="editor-panel hidden" id="panel-transform">
+                <div class="flex gap-3 items-center">
+                    <button class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-surface-50 dark:bg-surface-800 transition-all text-surface-600 dark:text-surface-400 hover:text-white"
+                            hx-post="/api/apply" hx-vals='{"operation": "rotate", "angle": "90"}' hx-target="#editor-content" hx-swap="innerHTML">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        <span class="text-[10px]">Rotate 90</span>
+                    </button>
+                    <button class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-surface-50 dark:bg-surface-800 transition-all text-surface-600 dark:text-surface-400 hover:text-white"
+                            hx-post="/api/apply" hx-vals='{"operation": "rotate", "angle": "270"}' hx-target="#editor-content" hx-swap="innerHTML">
+                        <svg class="w-5 h-5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        <span class="text-[10px]">Rotate -90</span>
+                    </button>
+                    <div class="w-px h-8 bg-surface-200 dark:bg-surface-700"></div>
+                    <button class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-surface-50 dark:bg-surface-800 transition-all text-surface-600 dark:text-surface-400 hover:text-white"
+                            hx-post="/api/apply" hx-vals='{"operation": "flip", "direction": "horizontal"}' hx-target="#editor-content" hx-swap="innerHTML">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                        <span class="text-[10px]">Flip H</span>
+                    </button>
+                    <button class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-surface-50 dark:bg-surface-800 transition-all text-surface-600 dark:text-surface-400 hover:text-white"
+                            hx-post="/api/apply" hx-vals='{"operation": "flip", "direction": "vertical"}' hx-target="#editor-content" hx-swap="innerHTML">
+                        <svg class="w-5 h-5 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                        <span class="text-[10px]">Flip V</span>
+                    </button>
+                    <div class="w-px h-8 bg-surface-200 dark:bg-surface-700"></div>
+                    <span class="text-[10px] text-surface-500">Crop 1:1</span>
+                    <button class="text-[10px] bg-surface-50 dark:bg-surface-800 hover:bg-surface-200 dark:bg-surface-700 text-surface-800 dark:text-surface-300 px-2 py-1 rounded transition-all"
+                            hx-post="/api/apply" hx-vals='{"operation": "crop", "x": "0", "y": "0", "w": "999", "h": "999"}' hx-target="#editor-content" hx-swap="innerHTML">1:1</button>
+                    <button class="text-[10px] bg-surface-50 dark:bg-surface-800 hover:bg-surface-200 dark:bg-surface-700 text-surface-800 dark:text-surface-300 px-2 py-1 rounded transition-all"
+                            hx-post="/api/apply" hx-vals='{"operation": "crop", "x": "0", "y": "0", "w": "999", "h": "999"}' hx-target="#editor-content" hx-swap="innerHTML">4:3</button>
+                    <button class="text-[10px] bg-surface-50 dark:bg-surface-800 hover:bg-surface-200 dark:bg-surface-700 text-surface-800 dark:text-surface-300 px-2 py-1 rounded transition-all"
+                            hx-post="/api/apply" hx-vals='{"operation": "crop", "x": "0", "y": "0", "w": "999", "h": "999"}' hx-target="#editor-content" hx-swap="innerHTML">16:9</button>
+                </div>
+            </div>
+
+            <!-- FILTERS TAB -->
+            <div class="editor-panel hidden" id="panel-filters">
+                <div class="flex gap-3 overflow-x-auto">
+                    {% for preset in ['grayscale', 'sepia', 'vintage', 'noir', 'sketch', 'pop'] %}
+                    <button class="flex-shrink-0 flex flex-col items-center gap-1 px-4 py-2 rounded-lg hover:bg-surface-50 dark:bg-surface-800 transition-all text-surface-600 dark:text-surface-400 hover:text-white"
+                            hx-post="/api/filter-preset" hx-vals='{"preset": "{{ preset }}"}' hx-target="#editor-content" hx-swap="innerHTML">
+                        <div class="w-12 h-12 rounded-lg bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 flex items-center justify-center">
+                            <span class="text-lg">{{ {'grayscale':'B', 'sepia':'S', 'vintage':'V', 'noir':'N', 'sketch':'K', 'pop':'P'}[preset] }}</span>
+                        </div>
+                        <span class="text-[10px] capitalize">{{ preset }}</span>
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- HISTORY TAB -->
+            <div class="editor-panel hidden" id="panel-history">
+                {% if filter_stack %}
+                <div class="flex flex-wrap gap-1.5">
+                    {% for f in filter_stack %}
+                    <span class="inline-flex items-center gap-1 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-full px-2.5 py-0.5 text-[11px]">
+                        <span class="text-surface-500">{{ loop.index }}.</span>
+                        <span class="text-surface-800 dark:text-surface-300">{{ f.name }}</span>
+                        <button class="text-surface-500 hover:text-red-400 ml-0.5 transition-colors"
+                                hx-post="/api/remove/{{ f.id }}" hx-target="#editor-content" hx-swap="innerHTML">&times;</button>
+                    </span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-surface-600 text-xs italic">No edits yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function switchEditorTab(btn) {
+    document.querySelectorAll('.editor-tab').forEach(t => {
+        t.classList.remove('text-white', 'bg-surface-50 dark:bg-surface-800', 'font-medium');
+        t.classList.add('text-surface-500');
+    });
+    btn.classList.add('text-white', 'bg-surface-50 dark:bg-surface-800', 'font-medium');
+    btn.classList.remove('text-surface-500');
+    document.querySelectorAll('.editor-panel').forEach(p => p.classList.add('hidden'));
+    document.getElementById('panel-' + btn.dataset.tab).classList.remove('hidden');
+}
+</script>
+{% endblock %}
+

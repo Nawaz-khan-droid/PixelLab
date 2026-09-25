@@ -1,0 +1,30 @@
+<div class="space-y-2">
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>X</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="cropXVal">0</span></label>
+        <input type="range" name="x" min="0" max="2048" value="0" class="w-full"
+               oninput="document.getElementById('cropXVal').textContent=this.value">
+    </div>
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Y</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="cropYVal">0</span></label>
+        <input type="range" name="y" min="0" max="2048" value="0" class="w-full"
+               oninput="document.getElementById('cropYVal').textContent=this.value">
+    </div>
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Width</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="cropWVal">0</span></label>
+        <input type="range" name="w" min="0" max="2048" value="0" class="w-full"
+               oninput="document.getElementById('cropWVal').textContent=this.value">
+    </div>
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Height</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="cropHVal">0</span></label>
+        <input type="range" name="h" min="0" max="2048" value="0" class="w-full"
+               oninput="document.getElementById('cropHVal').textContent=this.value">
+    </div>
+    <button class="w-full text-xs bg-brand-600 hover:bg-brand-500 text-white py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1"
+            hx-post="/api/apply"
+            hx-vals='{"operation": "crop"}'
+            hx-include="[name='x'], [name='y'], [name='w'], [name='h']"
+            hx-target="#editor-content"
+            hx-swap="innerHTML">
+        Apply <span class="htmx-indicator"></span>
+    </button>
+</div>

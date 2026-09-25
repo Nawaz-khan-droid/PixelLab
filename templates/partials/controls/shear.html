@@ -1,0 +1,20 @@
+<div class="space-y-2">
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Shear X</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="shearXVal">0.0</span></label>
+        <input type="range" name="shear_x" min="-0.5" max="0.5" step="0.05" value="0" class="w-full"
+               oninput="document.getElementById('shearXVal').textContent=parseFloat(this.value).toFixed(2)">
+    </div>
+    <div>
+        <label class="text-[11px] text-surface-600 dark:text-surface-400 flex justify-between"><span>Shear Y</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="shearYVal">0.0</span></label>
+        <input type="range" name="shear_y" min="-0.5" max="0.5" step="0.05" value="0" class="w-full"
+               oninput="document.getElementById('shearYVal').textContent=parseFloat(this.value).toFixed(2)">
+    </div>
+    <button class="w-full text-xs bg-brand-600 hover:bg-brand-500 text-white py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1"
+            hx-post="/api/apply"
+            hx-vals='{"operation": "shear"}'
+            hx-include="[name='shear_x'], [name='shear_y']"
+            hx-target="#editor-content"
+            hx-swap="innerHTML">
+        Apply <span class="htmx-indicator"></span>
+    </button>
+</div>
