@@ -33,33 +33,33 @@
         <div class="editor-panel" id="panel-adjust">
             <div class="flex gap-4 overflow-x-auto">
                 <div class="flex-shrink-0 w-36">
-                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Brightness</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjBright">0</span></label>
-                    <input type="range" name="brightness" min="-100" max="100" value="0" class="w-full" id="adj-brightness" oninput="document.getElementById('adjBright').textContent=this.value">
+                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Brightness</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjBright" hx-preserve="true">0</span></label>
+                    <input type="range" name="brightness" min="-100" max="100" value="0" class="w-full" id="adj-brightness" hx-preserve="true" oninput="document.getElementById('adjBright').textContent=this.value">
                     <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all" hx-post="/api/apply" hx-vals='{"operation": "brightness_contrast"}' hx-include="#adj-brightness" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
                 </div>
                 <div class="flex-shrink-0 w-36">
-                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Contrast</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjContrast">1.0</span></label>
-                    <input type="range" name="contrast" min="0.5" max="2.0" step="0.1" value="1.0" class="w-full" id="adj-contrast" oninput="document.getElementById('adjContrast').textContent=parseFloat(this.value).toFixed(1)">
+                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Contrast</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjContrast" hx-preserve="true">1.0</span></label>
+                    <input type="range" name="contrast" min="0.5" max="2.0" step="0.1" value="1.0" class="w-full" id="adj-contrast" hx-preserve="true" oninput="document.getElementById('adjContrast').textContent=parseFloat(this.value).toFixed(1)">
                     <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all" hx-post="/api/apply" hx-vals='{"operation": "brightness_contrast"}' hx-include="#adj-brightness, #adj-contrast" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
                 </div>
                 <div class="flex-shrink-0 w-36">
-                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Saturation</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjSat">1.0</span></label>
-                    <input type="range" name="sat_factor" min="0.0" max="2.0" step="0.1" value="1.0" class="w-full" id="adj-saturation" oninput="document.getElementById('adjSat').textContent=parseFloat(this.value).toFixed(1)">
+                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Saturation</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjSat" hx-preserve="true">1.0</span></label>
+                    <input type="range" name="sat_factor" min="0.0" max="2.0" step="0.1" value="1.0" class="w-full" id="adj-saturation" hx-preserve="true" oninput="document.getElementById('adjSat').textContent=parseFloat(this.value).toFixed(1)">
                     <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all" hx-post="/api/apply" hx-vals='{"operation": "hue_saturation"}' hx-include="#adj-saturation" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
                 </div>
                 <div class="flex-shrink-0 w-36">
-                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Temperature</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjTemp">0.0</span></label>
-                    <input type="range" name="warmth" min="-1.0" max="1.0" step="0.1" value="0" class="w-full" id="adj-temperature" oninput="document.getElementById('adjTemp').textContent=parseFloat(this.value).toFixed(1)">
+                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Temperature</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjTemp" hx-preserve="true">0.0</span></label>
+                    <input type="range" name="warmth" min="-1.0" max="1.0" step="0.1" value="0" class="w-full" id="adj-temperature" hx-preserve="true" oninput="document.getElementById('adjTemp').textContent=parseFloat(this.value).toFixed(1)">
                     <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all" hx-post="/api/apply" hx-vals='{"operation": "temperature"}' hx-include="#adj-temperature" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
                 </div>
                 <div class="flex-shrink-0 w-36">
-                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Blur</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjBlur">5</span></label>
-                    <input type="range" name="kernel" min="1" max="51" step="2" value="5" class="w-full" id="adj-blur" oninput="document.getElementById('adjBlur').textContent=this.value">
+                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Blur</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjBlur" hx-preserve="true">5</span></label>
+                    <input type="range" name="kernel" min="1" max="51" step="2" value="5" class="w-full" id="adj-blur" hx-preserve="true" oninput="document.getElementById('adjBlur').textContent=this.value">
                     <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all" hx-post="/api/apply" hx-vals='{"operation": "gaussian_blur"}' hx-include="#adj-blur" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
                 </div>
                 <div class="flex-shrink-0 w-36">
-                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Sharpen</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjSharp">1.5</span></label>
-                    <input type="range" name="strength" min="1.0" max="3.0" step="0.1" value="1.5" class="w-full" id="adj-sharpen" oninput="document.getElementById('adjSharp').textContent=parseFloat(this.value).toFixed(1)">
+                    <label class="text-[10px] text-surface-600 dark:text-surface-400 flex justify-between mb-1"><span>Sharpen</span><span class="text-surface-800 dark:text-surface-300 font-mono" id="adjSharp" hx-preserve="true">1.5</span></label>
+                    <input type="range" name="strength" min="1.0" max="3.0" step="0.1" value="1.5" class="w-full" id="adj-sharpen" hx-preserve="true" oninput="document.getElementById('adjSharp').textContent=parseFloat(this.value).toFixed(1)">
                     <button class="w-full text-[10px] bg-brand-600 hover:bg-brand-500 text-white py-1 px-2 rounded-lg mt-1 transition-all" hx-post="/api/apply" hx-vals='{"operation": "unsharp_mask"}' hx-include="#adj-sharpen" hx-target="#editor-content" hx-swap="innerHTML">Apply</button>
                 </div>
             </div>
