@@ -92,8 +92,6 @@
 </div>
 
 <script type="module">
-import { ObjectDetector, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js";
-
 // ---- state ----
 var CAM_W = 640, CAM_H = 480;
 var mode = 'detect';
@@ -109,6 +107,15 @@ let modelLoaded = false;
 async function initMediaPipe() {
     window.setStat('bg-amber-400', 'loading model...');
     try {
+        // Use standard jsdelivr resolution to get the correct ES module
+        const visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs");
+        const ObjectDetector = visionModule.ObjectDetector;
+        const FilesetResolver = visionModule.FilesetResolver;
+
+        if (!ObjectDetector || !FilesetResolver) {
+            throw new Error("Module loaded but exports are missing. Is it an ES module?");
+        }
+
         const vision = await FilesetResolver.forVisionTasks(
             "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
         );
@@ -133,6 +140,7 @@ async function initMediaPipe() {
     } catch (e) {
         window.setStat('bg-red-500', 'model load failed');
         console.error("[PixelLab] MediaPipe load error:", e);
+        document.getElementById('results').innerHTML = `<p class="text-red-500 text-xs">Error loading model: ${e.message}</p>`;
     }
 }
 
