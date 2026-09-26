@@ -92,44 +92,65 @@
 </div>
 
 <script type="module">
-// ---- constants ----
+// ---- state ----
 var CAM_W = 640, CAM_H = 480;
-var mode = 'detect';            // 'detect' | 'deepfake'
+var mode = 'detect';
 var stream = null, inFlight = false;
 var lastFrames = [], fps = 0;
 
-let objectDetector;
-let runningMode = "VIDEO";
+let objectDetector = null;
 let lastVideoTime = -1;
 let rafId = null;
+let modelLoaded = false;
 
-// Initialize MediaPipe dynamically so it doesn't block script execution if CDN is slow
+// ---- MediaPipe init ----
 async function initMediaPipe() {
     window.setStat('bg-amber-400', 'loading model...');
     try {
-        const visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js");
+        const visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
         const ObjectDetector = visionModule.ObjectDetector;
         const FilesetResolver = visionModule.FilesetResolver;
 
         const vision = await FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
         );
         objectDetector = await ObjectDetector.createFromOptions(vision, {
             baseOptions: {
                 modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
                 delegate: "CPU"
             },
-            scoreThreshold: 0.35,
-            runningMode: runningMode
+            scoreThreshold: 0.30,
+            maxResults: 10,
+            runningMode: "VIDEO"
         });
-        if (stream) window.setStat('bg-emerald-500', 'live');
-        else window.setStat('bg-surface-600', 'idle (model ready)');
+        modelLoaded = true;
+        console.log("[PixelLab] MediaPipe ObjectDetector loaded successfully.");
+        window.setStat('bg-surface-600', 'model ready');
+
+        // If camera was already started while model was loading, kick off detection
+        if (stream && mode === 'detect') {
+            lastVideoTime = -1;
+            predictWebcam();
+        }
     } catch (e) {
-        window.setStat('bg-red-500', 'model error');
-        console.error("MediaPipe load error:", e);
+        window.setStat('bg-red-500', 'model load failed');
+        console.error("[PixelLab] MediaPipe load error:", e);
     }
 }
 
+// ---- status helper ----
+window.setStat = function(klass, text) {
+    var dot = document.querySelector('#stat-live span');
+    if (dot) {
+        dot.className = 'w-2 h-2 rounded-full ' + klass;
+    }
+    var statEl = document.getElementById('stat-live');
+    if (statEl && statEl.lastChild) {
+        statEl.lastChild.nodeValue = ' ' + text;
+    }
+}
+
+// ---- mode switch ----
 window.setMode = function(btn) {
     if (!stream) return;
     document.querySelectorAll('.mode-btn').forEach(b => {
@@ -139,37 +160,57 @@ window.setMode = function(btn) {
     btn.classList.add('active-mode');
     btn.classList.remove('text-surface-500');
     mode = btn.dataset.mode;
-    
+
     if (mode === 'deepfake') {
+        // Stop detection loop
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        clearCanvas();
         document.getElementById('df-card').classList.remove('hidden');
-        document.getElementById('results').innerHTML = 
+        document.getElementById('results').innerHTML =
             '<div class="flex flex-col items-center justify-center h-full gap-3">' +
             '<p class="text-xs text-surface-500 text-center">Click below to capture a frame and send it for AI analysis.</p>' +
             '<button onclick="scanDeepfakeFrame()" id="btn-scan-frame" class="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Scan Frame</button>' +
             '</div>';
-        
-        // Clear canvas
-        var canvas = document.getElementById('overlay');
-        var ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     } else {
         document.getElementById('df-card').classList.add('hidden');
-        document.getElementById('results').innerHTML = '<p class="text-surface-600 text-xs">Running MediaPipe object detection...</p>';
+        document.getElementById('results').innerHTML = '<p class="text-surface-600 text-xs">Starting object detection...</p>';
         if (stream && objectDetector) {
             lastVideoTime = -1;
             predictWebcam();
+        } else if (!objectDetector) {
+            document.getElementById('results').innerHTML = '<p class="text-surface-600 text-xs">Waiting for model to load...</p>';
         }
     }
 }
 
-window.setStat = function(klass, text) {
-    var dot = document.querySelector('#stat-live span');
-    dot.className = 'w-2 h-2 rounded-full ' + klass;
-    document.getElementById('stat-live').lastChild.nodeValue = ' ' + text;
+// ---- canvas helpers ----
+function syncCanvasSize() {
+    var canvas = document.getElementById('overlay');
+    var video = document.getElementById('cam');
+    if (!canvas || !video) return;
+    // Match canvas internal resolution to the video element's displayed size
+    var rect = video.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    // Also position the canvas exactly over the video
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
 }
 
+function clearCanvas() {
+    var canvas = document.getElementById('overlay');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ---- render detections in sidebar ----
 function renderDetections(dets) {
+    if (!dets || dets.length === 0) {
+        document.getElementById('results').innerHTML =
+            '<p class="text-surface-600 text-xs">No objects detected in frame.</p>';
+        return;
+    }
     var rows = dets.map(function(o, i) {
         var conf = o.categories[0].score;
         var label = o.categories[0].categoryName;
@@ -181,131 +222,160 @@ function renderDetections(dets) {
             '<span class="text-[10px] font-mono text-brand-300 w-10 text-right">' + Math.round(conf * 100) + '%</span>' +
         '</div>';
     }).join('');
-    document.getElementById('results').innerHTML = rows ||
-        '<p class="text-surface-600 text-xs">No objects detected in frame.</p>';
+    document.getElementById('results').innerHTML = rows;
 }
 
+// ---- draw bounding boxes ----
 function drawBoxes(dets) {
     var canvas = document.getElementById('overlay');
-    var wrap = document.getElementById('camera-wrap');
     var video = document.getElementById('cam');
-    
-    // Setup canvas size to match visual video size
-    var cw = wrap.clientWidth;
-    var ch = wrap.clientHeight;
-    
-    // The actual video dimensions might be different from display size due to object-contain
-    // We need to calculate the actual letterboxed dimensions
-    var vidRatio = video.videoWidth / video.videoHeight;
-    var wrapRatio = cw / ch;
-    
-    var actualW, actualH, offsetX = 0, offsetY = 0;
-    if (vidRatio > wrapRatio) {
-        actualW = cw;
-        actualH = cw / vidRatio;
-        offsetY = (ch - actualH) / 2;
-    } else {
-        actualH = ch;
-        actualW = ch * vidRatio;
-        offsetX = (cw - actualW) / 2;
-    }
-    
+    if (!canvas || !video || video.videoWidth === 0) return;
+
+    syncCanvasSize();
     var ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
+    // The video is displayed with object-contain inside the <video> element.
+    // Since we sized the canvas to match the video element's bounding rect,
+    // we need to figure out where the actual video pixels are drawn within that rect.
+    var displayW = canvas.width;
+    var displayH = canvas.height;
+    var vidRatio = video.videoWidth / video.videoHeight;
+    var displayRatio = displayW / displayH;
+
+    var renderW, renderH, offsetX = 0, offsetY = 0;
+    if (vidRatio > displayRatio) {
+        renderW = displayW;
+        renderH = displayW / vidRatio;
+        offsetY = (displayH - renderH) / 2;
+    } else {
+        renderH = displayH;
+        renderW = displayH * vidRatio;
+        offsetX = (displayW - renderW) / 2;
+    }
+
+    var scaleX = renderW / video.videoWidth;
+    var scaleY = renderH / video.videoHeight;
+
     dets.forEach(function(o) {
         var box = o.boundingBox;
-        // box coords are in original video pixel space
-        var scaleX = actualW / video.videoWidth;
-        var scaleY = actualH / video.videoHeight;
-        
         var x = (box.originX * scaleX) + offsetX;
         var y = (box.originY * scaleY) + offsetY;
         var w = box.width * scaleX;
         var h = box.height * scaleY;
-        
+
+        // Draw box
         ctx.strokeStyle = '#22d3ee';
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
-        ctx.font = '11px system-ui';
+
+        // Draw label background + text
         var label = o.categories[0].categoryName + ' ' + Math.round(o.categories[0].score * 100) + '%';
+        ctx.font = 'bold 12px system-ui, sans-serif';
         var tw = ctx.measureText(label).width;
-        ctx.fillStyle = 'rgba(34,211,238,0.9)';
-        ctx.fillRect(x, Math.max(0, y - 16), tw + 8, 16);
+        var labelH = 18;
+        var labelY = Math.max(0, y - labelH);
+        ctx.fillStyle = 'rgba(34,211,238,0.85)';
+        ctx.fillRect(x, labelY, tw + 10, labelH);
         ctx.fillStyle = '#020617';
-        ctx.fillText(label, x + 4, Math.max(11, y - 3));
+        ctx.fillText(label, x + 5, labelY + 13);
     });
 }
 
+// ---- detection loop ----
 function predictWebcam() {
     if (mode !== 'detect' || !stream || !objectDetector) return;
-    
+
     var video = document.getElementById('cam');
-    if (video.currentTime !== lastVideoTime && video.videoWidth > 0) {
-        lastVideoTime = video.currentTime;
-        var t0 = performanceNow();
-        var detections = objectDetector.detectForVideo(video, t0);
-        var infer_ms = performanceNow() - t0;
-        
-        drawBoxes(detections.detections);
-        renderDetections(detections.detections);
-        
-        document.getElementById('stat-inf').textContent = 'infer ' + infer_ms.toFixed(1) + 'ms';
-        window.setStat('bg-emerald-500', 'live · ' + detections.detections.length + ' obj');
-        
-        // Calculate FPS
-        var n = lastFrames.push(Date.now());
-        if (lastFrames.length > 20) lastFrames.shift();
-        if (lastFrames.length > 1) {
-            var dt = (lastFrames[lastFrames.length - 1] - lastFrames[0]) / (lastFrames.length - 1);
-            fps = (1000 / dt).toFixed(1);
-            document.getElementById('stat-fps').textContent = fps + ' fps';
+    if (!video || video.readyState < 2 || video.videoWidth === 0) {
+        // Video not ready yet, retry
+        rafId = requestAnimationFrame(predictWebcam);
+        return;
+    }
+
+    var now = video.currentTime;
+    if (now !== lastVideoTime) {
+        lastVideoTime = now;
+        // MediaPipe detectForVideo expects a timestamp in ms
+        var timestampMs = now * 1000;
+        try {
+            var result = objectDetector.detectForVideo(video, timestampMs);
+            drawBoxes(result.detections);
+            renderDetections(result.detections);
+
+            var count = result.detections.length;
+            window.setStat('bg-emerald-500', 'live · ' + count + ' obj');
+
+            // FPS counter
+            lastFrames.push(Date.now());
+            if (lastFrames.length > 30) lastFrames.shift();
+            if (lastFrames.length > 1) {
+                var dt = (lastFrames[lastFrames.length - 1] - lastFrames[0]) / (lastFrames.length - 1);
+                fps = (1000 / dt).toFixed(1);
+                document.getElementById('stat-fps').textContent = fps + ' fps';
+            }
+        } catch (e) {
+            console.error("[PixelLab] Detection error:", e);
         }
     }
-    
+
     rafId = requestAnimationFrame(predictWebcam);
 }
 
-window.startCam = function() {
-    var v = navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: CAM_W }, height: { ideal: CAM_H } }
-    });
-    v.then(function(s) {
-        stream = s;
-        var video = document.getElementById('cam');
-        video.srcObject = s;
-        
-        // Setup canvas resolution
-        var canvas = document.getElementById('overlay');
-        var wrap = document.getElementById('camera-wrap');
-        canvas.width = wrap.clientWidth;
-        canvas.height = wrap.clientHeight;
-        
-        document.getElementById('btn-start').classList.add('hidden');
-        document.getElementById('btn-stop').classList.remove('hidden');
-        document.getElementById('cam-off').style.display = 'none';
-        document.getElementById('camera-wrap').style.display = 'block';
-        
-        if (objectDetector) {
-            window.setStat('bg-emerald-500', 'live');
-            if (mode === 'detect') {
-                lastVideoTime = -1;
-                predictWebcam();
-            }
-        } else {
-            window.setStat('bg-amber-400', 'waiting for model...');
-        }
-    }).catch(function(e) {
+// ---- start camera ----
+window.startCam = async function() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: CAM_W }, height: { ideal: CAM_H } }
+        });
+    } catch (e) {
         window.setStat('bg-red-500', 'camera error');
         document.getElementById('cam-off-msg').textContent = 'Camera denied or unavailable: ' + e.name;
         document.getElementById('cam-off').style.display = 'flex';
+        return;
+    }
+
+    var video = document.getElementById('cam');
+    video.srcObject = stream;
+
+    // Show the camera UI
+    document.getElementById('btn-start').classList.add('hidden');
+    document.getElementById('btn-stop').classList.remove('hidden');
+    document.getElementById('cam-off').style.display = 'none';
+    document.getElementById('camera-wrap').style.display = 'block';
+
+    // CRITICAL: Wait for the video to actually load its first frame
+    // so videoWidth/videoHeight are available and canvas can be sized properly
+    await new Promise(function(resolve) {
+        if (video.readyState >= 2) {
+            resolve();
+        } else {
+            video.addEventListener('loadeddata', resolve, { once: true });
+        }
     });
+
+    // Now sync canvas size (camera-wrap is visible and video has real dimensions)
+    syncCanvasSize();
+
+    if (objectDetector && mode === 'detect') {
+        window.setStat('bg-emerald-500', 'live');
+        lastVideoTime = -1;
+        predictWebcam();
+    } else if (!objectDetector) {
+        window.setStat('bg-amber-400', 'loading model...');
+        document.getElementById('results').innerHTML = '<p class="text-surface-600 text-xs">Model is loading, detection will start automatically...</p>';
+    } else {
+        window.setStat('bg-emerald-500', 'live');
+    }
 }
 
+// ---- stop camera ----
 window.stopCam = function() {
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     if (stream) stream.getTracks().forEach(function(t) { t.stop(); });
     stream = null; inFlight = false;
+    lastVideoTime = -1;
+    lastFrames = [];
     document.getElementById('btn-start').classList.remove('hidden');
     document.getElementById('btn-stop').classList.add('hidden');
     document.getElementById('cam-off').style.display = 'flex';
@@ -317,33 +387,30 @@ window.stopCam = function() {
     window.setStat('bg-surface-600', 'idle');
     document.getElementById('stat-inf').textContent = '';
     document.getElementById('stat-fps').textContent = '';
-    
-    // Clear canvas
-    var canvas = document.getElementById('overlay');
-    var ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    clearCanvas();
 }
 
+// ---- deepfake scan ----
 window.scanDeepfakeFrame = function() {
     if (inFlight) return;
     var btn = document.getElementById('btn-scan-frame');
     if (btn) { btn.textContent = 'Scanning...'; btn.disabled = true; }
-    
+
     var video = document.getElementById('cam');
     if (!video.videoWidth) return;
     var canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth; 
+    canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    
+
     canvas.toBlob(function(blob) {
         var formData = new FormData();
         formData.append('image', blob, 'frame.jpg');
         formData.append('models', 'deepfake');
-        
+
         inFlight = true;
         window.setStat('bg-amber-400', 'analyzing...');
-        
+
         fetch('/api/sightengine/scan', {
             method: 'POST',
             body: formData
@@ -351,12 +418,11 @@ window.scanDeepfakeFrame = function() {
             inFlight = false;
             if (btn) { btn.textContent = 'Scan Frame'; btn.disabled = false; }
             window.setStat('bg-emerald-500', 'live');
-            
+
             if (data.error) {
                 showToast(data.message, 'error');
                 return;
             }
-            
             showDeepfake(data);
         }).catch(e => {
             inFlight = false;
@@ -371,10 +437,10 @@ function showDeepfake(d) {
     var card = document.getElementById('df-card');
     card.classList.remove('hidden');
     card.classList.remove('bg-emerald-900/60', 'border-emerald-500/50', 'bg-red-900/60', 'border-red-500/50');
-    
+
     var dfScore = d.deepfake || 0;
     var isDf = dfScore > 0.5;
-    
+
     if (isDf) {
         card.classList.add('bg-red-900/60', 'border-red-500/50');
         document.getElementById('df-label').textContent = 'DEEPFAKE';
@@ -387,14 +453,11 @@ function showDeepfake(d) {
     document.getElementById('df-score').textContent = Math.round(dfScore * 100) + '%';
     document.getElementById('df-bar').style.width = Math.round(dfScore * 100) + '%';
     document.getElementById('df-bar').style.background = isDf ? '#ef4444' : '#10b981';
-    
-    document.getElementById('df-detail').innerHTML = 
+    document.getElementById('df-detail').innerHTML =
         '<span>CONFIDENCE: ' + Math.round(Math.max(dfScore, 1-dfScore) * 100) + '%</span>';
 }
 
-function performanceNow() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
-
-// Toast from sightengine.html
+// Toast helper
 window.showToast = function(msg, type='info') {
     const el = document.createElement('div');
     el.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg text-sm text-white toast-enter z-50 ${type==='error'?'bg-red-500':'bg-brand-600'}`;
@@ -403,7 +466,12 @@ window.showToast = function(msg, type='info') {
     setTimeout(() => { el.style.opacity = '0'; setTimeout(()=>el.remove(), 300); }, 3000);
 }
 
-// Initialize on load
+// Resize canvas when window resizes
+window.addEventListener('resize', function() {
+    if (stream) syncCanvasSize();
+});
+
+// Start loading the model immediately
 initMediaPipe();
 </script>
 
