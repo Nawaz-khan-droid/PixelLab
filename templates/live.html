@@ -107,12 +107,12 @@ let modelLoaded = false;
 async function initMediaPipe() {
     window.setStat('bg-amber-400', 'loading model...');
     try {
-        const visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
+        const visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js");
         const ObjectDetector = visionModule.ObjectDetector;
         const FilesetResolver = visionModule.FilesetResolver;
 
         const vision = await FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
         );
         objectDetector = await ObjectDetector.createFromOptions(vision, {
             baseOptions: {
